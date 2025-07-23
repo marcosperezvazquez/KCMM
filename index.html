@@ -62,11 +62,11 @@
             view.classList.remove('hidden');
         }
         
-        // --- DATA PATHS ---
-        const getStudentDocRef = (studentId) => doc(db, `artifacts/${appId}/public/students`, studentId);
-        const getStudentsCollectionRef = () => collection(db, `artifacts/${appId}/public/students`);
-        const getShopCollectionRef = () => collection(db, `artifacts/${appId}/public/shop`);
-        const getShopItemDocRef = (itemId) => doc(db, `artifacts/${appId}/public/shop`, itemId);
+        // --- DATA PATHS (Corrected with /data/ segment) ---
+        const getStudentDocRef = (studentId) => doc(db, `artifacts/${appId}/public/data/students/${studentId}`);
+        const getStudentsCollectionRef = () => collection(db, `artifacts/${appId}/public/data/students`);
+        const getShopCollectionRef = () => collection(db, `artifacts/${appId}/public/data/shop`);
+        const getShopItemDocRef = (itemId) => doc(db, `artifacts/${appId}/public/data/shop/${itemId}`);
 
         // --- TEACHER VIEW LOGIC ---
         async function loadTeacherDashboard() {
@@ -374,7 +374,8 @@
                 }
                 showLoading(true);
                 try {
-                    const newStudentRef = doc(collection(db, `artifacts/${appId}/public/students`));
+                    // Use getStudentsCollectionRef() which now has the correct path
+                    const newStudentRef = doc(getStudentsCollectionRef());
                     await setDoc(newStudentRef, { name: name, xp: 0, money: 0 });
                     studentNameInput.value = '';
                     showModal(`Student "${name}" added successfully! Their ID is ${newStudentRef.id}`);
@@ -399,6 +400,7 @@
                 }
                 showLoading(true);
                 try {
+                    // Use getShopCollectionRef() which now has the correct path
                     await addDoc(getShopCollectionRef(), { name, price });
                     itemNameInput.value = '';
                     itemPriceInput.value = '';
