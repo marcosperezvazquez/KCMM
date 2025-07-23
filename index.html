@@ -13,9 +13,20 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         // --- CONFIGURATION ---
-        // These variables are placeholders and will be automatically populated by the environment.
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "your-api-key", authDomain: "your-auth-domain", projectId: "your-project-id" };
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'classroom-rewards';
+        // PASTE YOUR FIREBASE CONFIG OBJECT HERE
+        // You can get this from your Firebase project settings.
+        const firebaseConfig = {
+            apiKey: "AIzaSyB24FK40HnQ_EVKZkmBiCvMXU7wFOQ6WOI",
+            authDomain: "gemini-test-aa0b7.firebaseapp.com",
+            projectId: "gemini-test-aa0b7",
+            storageBucket: "gemini-test-aa0b7.firebasestorage.app",
+            messagingSenderId: "410596219691",
+            appId: "1:410596219691:web:d3ec379735ea279fbe436e",
+            measurementId: "G-MDZXM0ZDSF"
+};
+        };
+        // This variable is for the testing environment and can be ignored.
+        const appId = typeof __app_id !== 'undefined' ? __app_id : (firebaseConfig.projectId || 'classroom-rewards');
         
         // Special ID for the teacher. Keep this secret.
         const TEACHER_ID = "teacher-admin-01";
@@ -28,26 +39,22 @@
         let allStudentsUnsubscribe = null;
 
         // --- UI ELEMENTS ---
-        const loginView = document.getElementById('login-view');
-        const studentView = document.getElementById('student-view');
-        const teacherView = document.getElementById('teacher-view');
-        const loadingOverlay = document.getElementById('loading-overlay');
-        const modal = document.getElementById('modal');
-        const modalMessage = document.getElementById('modal-message');
-        const modalClose = document.getElementById('modal-close');
+        let loginView, studentView, teacherView, loadingOverlay, modal, modalMessage, modalClose;
 
         // --- HELPER FUNCTIONS ---
         function showLoading(show) {
-            loadingOverlay.style.display = show ? 'flex' : 'none';
+            if (loadingOverlay) loadingOverlay.style.display = show ? 'flex' : 'none';
         }
 
         function showModal(message) {
-            modalMessage.textContent = message;
-            modal.style.display = 'flex';
+            if (modal && modalMessage) {
+                modalMessage.textContent = message;
+                modal.style.display = 'flex';
+            }
         }
 
         function hideModal() {
-            modal.style.display = 'none';
+            if (modal) modal.style.display = 'none';
         }
 
         function showView(view) {
@@ -68,7 +75,6 @@
             showView(teacherView);
             document.getElementById('teacher-id-display').textContent = `Your Teacher ID: ${TEACHER_ID}`;
 
-            // Listen for real-time updates to all students
             if (allStudentsUnsubscribe) allStudentsUnsubscribe();
             allStudentsUnsubscribe = onSnapshot(getStudentsCollectionRef(), (snapshot) => {
                 const students = [];
@@ -76,7 +82,6 @@
                 renderTeacherStudentList(students);
             });
 
-            // Listen for real-time updates to the shop
             if (shopDataUnsubscribe) shopDataUnsubscribe();
             shopDataUnsubscribe = onSnapshot(getShopCollectionRef(), (snapshot) => {
                 const items = [];
@@ -87,7 +92,7 @@
 
         function renderTeacherStudentList(students) {
             const container = document.getElementById('teacher-student-list');
-            container.innerHTML = ''; // Clear previous list
+            container.innerHTML = '';
             if (students.length === 0) {
                 container.innerHTML = `<p class="text-gray-500">No students found. Add a new student below.</p>`;
                 return;
@@ -99,7 +104,7 @@
                     <div class="flex-grow">
                         <p class="font-bold text-lg text-gray-800">${student.name}</p>
                         <p class="text-sm text-gray-500">ID: <code class="bg-gray-200 px-1 rounded">${student.id}</code></p>
-                        <p class="text-sm text-green-600 font-semibold">XP: ${student.xp} | Money: $${student.money}</p>
+                        <p class="text-sm text-green-600 font-semibold">XP: ${student.xp || 0} | Money: $${student.money || 0}</p>
                     </div>
                     <div class="flex items-center gap-2">
                         <input type="number" placeholder="Add/Sub XP" class="w-24 p-2 border rounded-md focus:ring-2 focus:ring-indigo-500">
@@ -115,7 +120,6 @@
                         showModal("Please enter a valid number for XP.");
                         return;
                     }
-
                     showLoading(true);
                     try {
                         const studentRef = getStudentDocRef(student.id);
@@ -123,10 +127,7 @@
                         if (studentDoc.exists()) {
                             const currentXp = studentDoc.data().xp || 0;
                             const currentMoney = studentDoc.data().money || 0;
-                            await updateDoc(studentRef, {
-                                xp: currentXp + amount,
-                                money: currentMoney + amount
-                            });
+                            await updateDoc(studentRef, { xp: currentXp + amount, money: currentMoney + amount });
                             amountInput.value = '';
                             showModal(`Updated ${student.name}'s points by ${amount}.`);
                         }
@@ -160,17 +161,27 @@
                 container.appendChild(itemEl);
 
                 itemEl.querySelector('.delete-item-btn').addEventListener('click', async () => {
-                    if (!confirm(`Are you sure you want to delete "${item.name}" from the shop?`)) return;
-                    showLoading(true);
-                    try {
-                        await deleteDoc(getShopItemDocRef(item.id));
-                        showModal(`"${item.name}" has been deleted.`);
-                    } catch (error) {
-                        console.error("Error deleting item:", error);
-                        showModal("Failed to delete item.");
-                    } finally {
-                        showLoading(false);
-                    }
+                    // Replaced confirm with a simple modal approach for broader compatibility
+                    showModal(`Delete "${item.name}"? This cannot be undone.`);
+                    // This is a simplified confirmation. A better UI would have Yes/No buttons in the modal.
+                    const confirmDelete = async () => {
+                        hideModal();
+                        showLoading(true);
+                        try {
+                            await deleteDoc(getShopItemDocRef(item.id));
+                            showModal(`"${item.name}" has been deleted.`);
+                        } catch (error) {
+                            console.error("Error deleting item:", error);
+                            showModal("Failed to delete item.");
+                        } finally {
+                            showLoading(false);
+                        }
+                        modalClose.removeEventListener('click', confirmDelete);
+                        modalClose.addEventListener('click', hideModal);
+                    };
+
+                    modalClose.removeEventListener('click', hideModal);
+                    modalClose.addEventListener('click', confirmDelete, { once: true });
                 });
             });
         }
@@ -179,13 +190,11 @@
         async function loadStudentDashboard(studentId) {
             showView(studentView);
             
-            // Listen for real-time updates for this specific student
             if (studentDataUnsubscribe) studentDataUnsubscribe();
             studentDataUnsubscribe = onSnapshot(getStudentDocRef(studentId), (doc) => {
                 if (doc.exists()) {
                     const student = { id: doc.id, ...doc.data() };
                     renderStudentHeader(student);
-                    // Re-render shop to update button states (e.g., affordable)
                     getDocs(getShopCollectionRef()).then(shopSnapshot => {
                          const items = [];
                          shopSnapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
@@ -197,12 +206,10 @@
                 }
             });
 
-            // Listen for real-time updates to the shop
             if (shopDataUnsubscribe) shopDataUnsubscribe();
             shopDataUnsubscribe = onSnapshot(getShopCollectionRef(), (shopSnapshot) => {
                 const items = [];
                 shopSnapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
-                // We need the latest student data to check affordability
                 getDoc(getStudentDocRef(studentId)).then(studentDoc => {
                     if (studentDoc.exists()) {
                         renderStudentShop(items, { id: studentDoc.id, ...studentDoc.data() });
@@ -226,16 +233,13 @@
                 return;
             }
             items.forEach(item => {
-                const canAfford = student.money >= item.price;
+                const canAfford = (student.money || 0) >= item.price;
                 const itemEl = document.createElement('div');
                 itemEl.className = 'p-6 bg-white rounded-xl shadow-lg flex flex-col items-center text-center transition-transform transform hover:scale-105';
                 itemEl.innerHTML = `
                     <h3 class="text-xl font-bold text-gray-800 mb-2">${item.name}</h3>
                     <p class="text-3xl font-bold text-blue-600 mb-4">$${item.price}</p>
-                    <button 
-                        class="buy-item-btn w-full py-2 px-4 rounded-lg font-semibold text-white transition-colors ${canAfford ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'}"
-                        ${!canAfford ? 'disabled' : ''}
-                    >
+                    <button class="buy-item-btn w-full py-2 px-4 rounded-lg font-semibold text-white transition-colors ${canAfford ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'}" ${!canAfford ? 'disabled' : ''}>
                         ${canAfford ? 'Buy' : 'Not enough money'}
                     </button>
                 `;
@@ -243,18 +247,14 @@
 
                 if (canAfford) {
                     itemEl.querySelector('.buy-item-btn').addEventListener('click', async () => {
-                         if (!confirm(`Are you sure you want to buy "${item.name}" for $${item.price}?`)) return;
-
                         showLoading(true);
                         try {
                             const studentRef = getStudentDocRef(student.id);
                             const studentDoc = await getDoc(studentRef);
                             if (studentDoc.exists()) {
-                                const currentMoney = studentDoc.data().money;
+                                const currentMoney = studentDoc.data().money || 0;
                                 if (currentMoney >= item.price) {
-                                    await updateDoc(studentRef, {
-                                        money: currentMoney - item.price
-                                    });
+                                    await updateDoc(studentRef, { money: currentMoney - item.price });
                                     showModal(`You successfully purchased "${item.name}"!`);
                                 } else {
                                     showModal("Transaction failed. You don't have enough money.");
@@ -288,13 +288,12 @@
                 return;
             }
             showLoading(true);
-            
-            if (id === TEACHER_ID) {
-                sessionStorage.setItem('loggedInId', id);
-                currentUserId = id;
-                await loadTeacherDashboard();
-            } else {
-                try {
+            try {
+                if (id === TEACHER_ID) {
+                    sessionStorage.setItem('loggedInId', id);
+                    currentUserId = id;
+                    await loadTeacherDashboard();
+                } else {
                     const studentRef = getStudentDocRef(id);
                     const studentDoc = await getDoc(studentRef);
                     if (studentDoc.exists()) {
@@ -304,25 +303,45 @@
                     } else {
                         showModal("Student ID not found. Please check the ID and try again.");
                     }
-                } catch (error) {
-                    console.error("Login error:", error);
-                    showModal("An error occurred during login.");
                 }
+            } catch (error) {
+                console.error("Login error:", error);
+                showModal("An error occurred during login. Check the console for details.");
+            } finally {
+                showLoading(false);
             }
-            showLoading(false);
         }
 
-        // --- EVENT LISTENERS ---
+        // --- EVENT LISTENERS & APP START ---
         document.addEventListener('DOMContentLoaded', () => {
+            // Assign UI elements to variables
+            loginView = document.getElementById('login-view');
+            studentView = document.getElementById('student-view');
+            teacherView = document.getElementById('teacher-view');
+            loadingOverlay = document.getElementById('loading-overlay');
+            modal = document.getElementById('modal');
+            modalMessage = document.getElementById('modal-message');
+            modalClose = document.getElementById('modal-close');
+
+            // CRITICAL: Check if Firebase config is filled out
+            if (firebaseConfig.apiKey.startsWith("PASTE_")) {
+                document.body.innerHTML = `
+                    <div class="container mx-auto p-8 text-center bg-white rounded-lg shadow-lg mt-10">
+                        <h1 class="text-3xl font-bold text-red-600">Configuration Error</h1>
+                        <p class="mt-4 text-lg text-gray-700">The application is not configured correctly.</p>
+                        <p class="mt-2 text-gray-600">Please open the <code>index.html</code> file, create a Firebase project, and paste your project's configuration keys into the <code>firebaseConfig</code> object.</p>
+                    </div>
+                `;
+                return; // Stop the app from running
+            }
+
             // Initialize Firebase App
             app = initializeApp(firebaseConfig);
             db = getFirestore(app);
             auth = getAuth(app);
 
-            // Sign in anonymously to secure Firestore rules
             onAuthStateChanged(auth, user => {
                 if (user) {
-                    // User is signed in. Check for a saved session.
                     const savedId = sessionStorage.getItem('loggedInId');
                     if (savedId) {
                         handleLogin(savedId);
@@ -330,10 +349,9 @@
                         showView(loginView);
                     }
                 } else {
-                    // User is signed out.
                     signInAnonymously(auth).catch(error => {
                         console.error("Anonymous sign-in failed:", error);
-                        showModal("Could not connect to the server. Please refresh.");
+                        showModal("Could not connect to the server. Please check your Firebase setup and security rules.");
                     });
                 }
             });
@@ -348,7 +366,6 @@
             
             document.querySelectorAll('.logout-btn').forEach(btn => btn.addEventListener('click', logout));
 
-            // Teacher: Add new student
             document.getElementById('add-student-form').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const studentNameInput = document.getElementById('new-student-name');
@@ -357,16 +374,10 @@
                     showModal("Please enter a student name.");
                     return;
                 }
-                
                 showLoading(true);
                 try {
-                    // Create a new document with an auto-generated ID
                     const newStudentRef = doc(collection(db, `artifacts/${appId}/public/students`));
-                    await setDoc(newStudentRef, {
-                        name: name,
-                        xp: 0,
-                        money: 0
-                    });
+                    await setDoc(newStudentRef, { name: name, xp: 0, money: 0 });
                     studentNameInput.value = '';
                     showModal(`Student "${name}" added successfully! Their ID is ${newStudentRef.id}`);
                 } catch (error) {
@@ -377,7 +388,6 @@
                 }
             });
 
-            // Teacher: Add new shop item
             document.getElementById('add-item-form').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const itemNameInput = document.getElementById('new-item-name');
@@ -389,7 +399,6 @@
                     showModal("Please enter a valid item name and a non-negative price.");
                     return;
                 }
-
                 showLoading(true);
                 try {
                     await addDoc(getShopCollectionRef(), { name, price });
@@ -407,12 +416,8 @@
 
     </script>
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        .hidden {
-            display: none;
-        }
+        body { font-family: 'Inter', sans-serif; }
+        .hidden { display: none; }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -437,7 +442,6 @@
 
         <!-- Student View -->
         <div id="student-view" class="hidden">
-            <!-- Student Header -->
             <header class="bg-white p-6 rounded-xl shadow-lg mb-8">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center">
                     <div>
@@ -457,12 +461,9 @@
                     </div>
                 </div>
             </header>
-
-            <!-- Student Shop -->
             <div>
                 <h2 class="text-2xl font-bold text-gray-700 mb-6">Class Shop</h2>
                 <div id="student-shop-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    <!-- Shop items will be injected here -->
                 </div>
             </div>
         </div>
@@ -478,12 +479,9 @@
             </header>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <!-- Student Management -->
                 <section class="bg-white p-6 rounded-xl shadow-lg">
                     <h2 class="text-2xl font-bold text-gray-700 mb-4">Manage Students</h2>
-                    <div id="teacher-student-list" class="space-y-4 mb-6">
-                        <!-- Student list will be injected here -->
-                    </div>
+                    <div id="teacher-student-list" class="space-y-4 mb-6"></div>
                     <form id="add-student-form" class="mt-6 pt-6 border-t">
                          <h3 class="text-lg font-semibold text-gray-700 mb-2">Add New Student</h3>
                          <div class="flex gap-2">
@@ -493,12 +491,9 @@
                     </form>
                 </section>
 
-                <!-- Shop Management -->
                 <section class="bg-white p-6 rounded-xl shadow-lg">
                     <h2 class="text-2xl font-bold text-gray-700 mb-4">Manage Shop</h2>
-                    <div id="teacher-shop-list" class="space-y-4 mb-6">
-                        <!-- Shop item list will be injected here -->
-                    </div>
+                    <div id="teacher-shop-list" class="space-y-4 mb-6"></div>
                      <form id="add-item-form" class="mt-6 pt-6 border-t">
                          <h3 class="text-lg font-semibold text-gray-700 mb-2">Add New Item</h3>
                          <div class="flex flex-col sm:flex-row gap-2">
@@ -527,3 +522,4 @@
 
 </body>
 </html>
+
