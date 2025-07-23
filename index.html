@@ -13,17 +13,15 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         // --- CONFIGURATION ---
-        // PASTE YOUR FIREBASE CONFIG OBJECT HERE
-        // You can get this from your Firebase project settings.
+        // This object contains your project's unique connection keys.
         const firebaseConfig = {
             apiKey: "AIzaSyB24FK40HnQ_EVKZkmBiCvMXU7wFOQ6WOI",
             authDomain: "gemini-test-aa0b7.firebaseapp.com",
             projectId: "gemini-test-aa0b7",
-            storageBucket: "gemini-test-aa0b7.firebasestorage.app",
+            storageBucket: "gemini-test-aa0b7.appspot.com",
             messagingSenderId: "410596219691",
             appId: "1:410596219691:web:d3ec379735ea279fbe436e",
             measurementId: "G-MDZXM0ZDSF"
-};
         };
         // This variable is for the testing environment and can be ignored.
         const appId = typeof __app_id !== 'undefined' ? __app_id : (firebaseConfig.projectId || 'classroom-rewards');
@@ -80,6 +78,9 @@
                 const students = [];
                 snapshot.forEach(doc => students.push({ id: doc.id, ...doc.data() }));
                 renderTeacherStudentList(students);
+            }, (error) => {
+                console.error("Error listening to students collection:", error);
+                showModal("Could not load student data. Check Firestore rules and console.");
             });
 
             if (shopDataUnsubscribe) shopDataUnsubscribe();
@@ -87,6 +88,9 @@
                 const items = [];
                 snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
                 renderTeacherShopList(items);
+            }, (error) => {
+                console.error("Error listening to shop collection:", error);
+                showModal("Could not load shop data. Check Firestore rules and console.");
             });
         }
 
@@ -161,9 +165,7 @@
                 container.appendChild(itemEl);
 
                 itemEl.querySelector('.delete-item-btn').addEventListener('click', async () => {
-                    // Replaced confirm with a simple modal approach for broader compatibility
-                    showModal(`Delete "${item.name}"? This cannot be undone.`);
-                    // This is a simplified confirmation. A better UI would have Yes/No buttons in the modal.
+                    showModal(`Delete "${item.name}"? This cannot be undone. Click Close to confirm.`);
                     const confirmDelete = async () => {
                         hideModal();
                         showLoading(true);
@@ -179,7 +181,6 @@
                         modalClose.removeEventListener('click', confirmDelete);
                         modalClose.addEventListener('click', hideModal);
                     };
-
                     modalClose.removeEventListener('click', hideModal);
                     modalClose.addEventListener('click', confirmDelete, { once: true });
                 });
@@ -314,7 +315,6 @@
 
         // --- EVENT LISTENERS & APP START ---
         document.addEventListener('DOMContentLoaded', () => {
-            // Assign UI elements to variables
             loginView = document.getElementById('login-view');
             studentView = document.getElementById('student-view');
             teacherView = document.getElementById('teacher-view');
@@ -323,22 +323,20 @@
             modalMessage = document.getElementById('modal-message');
             modalClose = document.getElementById('modal-close');
 
-            // CRITICAL: Check if Firebase config is filled out
             if (firebaseConfig.apiKey.startsWith("PASTE_")) {
-                document.body.innerHTML = `
-                    <div class="container mx-auto p-8 text-center bg-white rounded-lg shadow-lg mt-10">
-                        <h1 class="text-3xl font-bold text-red-600">Configuration Error</h1>
-                        <p class="mt-4 text-lg text-gray-700">The application is not configured correctly.</p>
-                        <p class="mt-2 text-gray-600">Please open the <code>index.html</code> file, create a Firebase project, and paste your project's configuration keys into the <code>firebaseConfig</code> object.</p>
-                    </div>
-                `;
-                return; // Stop the app from running
+                document.body.innerHTML = `<div class="container mx-auto p-8 text-center bg-white rounded-lg shadow-lg mt-10"><h1 class="text-3xl font-bold text-red-600">Configuration Error</h1><p class="mt-4 text-lg text-gray-700">The application is not configured correctly.</p><p class="mt-2 text-gray-600">Please open the <code>index.html</code> file, create a Firebase project, and paste your project's configuration keys into the <code>firebaseConfig</code> object.</p></div>`;
+                return;
             }
 
-            // Initialize Firebase App
-            app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+                document.body.innerHTML = `<div class="container mx-auto p-8 text-center bg-white rounded-lg shadow-lg mt-10"><h1 class="text-3xl font-bold text-red-600">Initialization Error</h1><p class="mt-4 text-lg text-gray-700">Could not initialize Firebase. Please check the <code>firebaseConfig</code> object in your <code>index.html</code> for syntax errors.</p></div>`;
+                return;
+            }
 
             onAuthStateChanged(auth, user => {
                 if (user) {
@@ -522,4 +520,3 @@
 
 </body>
 </html>
-
