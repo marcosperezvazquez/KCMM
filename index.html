@@ -11,7 +11,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, addDoc, deleteDoc, query, getDocs, serverTimestamp, writeBatch, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-
+        
         // --- CONFIGURATION ---
         const firebaseConfig = {
             apiKey: "AIzaSyB24FK40HnQ_EVKZkmBiCvMXU7wFOQ6WOI",
@@ -23,8 +23,8 @@
             measurementId: "G-MDZXM0ZDSF"
         };
         const appId = firebaseConfig.projectId;
-        const TEACHER_EMAIL = "teacher@example.com"; // A dummy email for teacher login
-        const TEACHER_PASSWORD = "teacher-password-01"; // A dummy password for teacher login
+        // IMPORTANT: Change this to the email you will use to log in as the teacher.
+        const TEACHER_EMAIL = "teacher@example.com"; 
 
         // --- FIREBASE INITIALIZATION ---
         let app, db, auth;
@@ -82,9 +82,8 @@
                 const studentEl = document.createElement('div');
                 studentEl.className = 'p-4 bg-white rounded-lg shadow-md';
                 let registrationInfo = student.isClaimed
-                    ? `<p class="text-sm text-green-600 font-semibold">Account Claimed</p>`
+                    ? `<p class="text-sm text-green-600 font-semibold">Account Claimed by: ${student.email || 'N/A'}</p>`
                     : `<p class="text-sm text-red-600 font-semibold">Registration Code: <code class="bg-red-100 p-1 rounded">${student.registrationCode}</code></p>`;
-
                 studentEl.innerHTML = `
                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                         <div class="flex-grow">
@@ -117,20 +116,17 @@
                 });
             });
         }
-        
+
         function renderTeacherShopList(items) {
             const container = document.getElementById('teacher-shop-list');
             container.innerHTML = '';
-            
             if (items.length === 0) {
                 container.innerHTML = `<p class="text-gray-500">No items in the shop yet.</p>`;
                 return;
             }
-            
             items.forEach(item => {
                 const itemEl = document.createElement('div');
                 itemEl.className = 'p-3 bg-gray-50 rounded-lg border flex justify-between items-center';
-                
                 itemEl.innerHTML = `
                     <div>
                         <p class="font-semibold text-gray-800">${item.name}</p>
@@ -138,20 +134,16 @@
                     </div>
                     <button class="delete-item-btn bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">Delete</button>
                 `;
-                
                 container.appendChild(itemEl);
-                
                 itemEl.querySelector('.delete-item-btn').addEventListener('click', async () => {
-                    if (confirm(`Delete "${item.name}" from the shop?`)) {
-                        showLoading(true);
-                        try {
-                            await deleteDoc(getShopItemDocRef(item.id));
-                        } catch (error) {
-                            console.error("Error deleting item:", error);
-                            showModal("Failed to delete item.");
-                        } finally {
-                            showLoading(false);
-                        }
+                    showLoading(true);
+                    try {
+                        await deleteDoc(getShopItemDocRef(item.id));
+                    } catch (error) {
+                        console.error("Error deleting item:", error);
+                        showModal("Failed to delete item.");
+                    } finally {
+                        showLoading(false);
                     }
                 });
             });
@@ -160,50 +152,22 @@
         function renderPurchaseHistory(history) {
             const container = document.getElementById('purchase-history-list');
             container.innerHTML = '';
-            
             if (history.length === 0) {
                 container.innerHTML = `<p class="text-gray-500">No purchases yet.</p>`;
                 return;
             }
-            
             history.forEach(purchase => {
                 const purchaseEl = document.createElement('div');
                 purchaseEl.className = 'p-3 bg-gray-50 rounded-lg border mb-2';
-                
                 const date = purchase.timestamp?.toDate().toLocaleDateString() || 'Unknown Date';
                 const time = purchase.timestamp?.toDate().toLocaleTimeString() || '';
-                
                 purchaseEl.innerHTML = `
-                    <div class="flex justify-between items-start">
-                        <div class="flex-grow">
-                            <p class="font-semibold text-gray-800">${purchase.studentName}</p>
-                            <p class="text-sm text-gray-600">${purchase.itemName}</p>
-                            <p class="text-sm font-semibold text-red-600">-$${purchase.price}</p>
-                            <p class="text-xs text-gray-500">${date} ${time}</p>
-                        </div>
-                        <div class="flex items-center">
-                            <span class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-semibold">Completed</span>
-                        </div>
-                    </div>
+                    <p class="font-semibold text-gray-800">${purchase.studentName} <span class="font-normal">bought</span> ${purchase.itemName}</p>
+                    <p class="text-sm font-semibold text-red-600">-$${purchase.price}</p>
+                    <p class="text-xs text-gray-500">${date} ${time}</p>
                 `;
-                
                 container.appendChild(purchaseEl);
             });
-            
-            // Show notification badge if there are recent purchases (within last 30 minutes)
-            const recentPurchases = history.filter(purchase => {
-                if (!purchase.timestamp) return false;
-                const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
-                return purchase.timestamp.toDate() > thirtyMinutesAgo;
-            });
-            
-            const notificationBadge = document.getElementById('purchase-notification-badge');
-            if (recentPurchases.length > 0) {
-                notificationBadge.textContent = recentPurchases.length;
-                notificationBadge.classList.remove('hidden');
-            } else {
-                notificationBadge.classList.add('hidden');
-            }
         }
 
         // --- STUDENT VIEW LOGIC ---
@@ -219,6 +183,9 @@
                          shopSnapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
                          renderStudentShop(items, student);
                     });
+                } else {
+                    // This can happen if the teacher deletes the student account.
+                    showModal("Your account data could not be found. Please log out.");
                 }
             });
         }
@@ -232,32 +199,24 @@
         function renderStudentShop(items, student) {
             const container = document.getElementById('student-shop-container');
             container.innerHTML = '';
-            
             if (items.length === 0) {
-                container.innerHTML = `<p class="text-gray-500">No items available in the shop.</p>`;
+                container.innerHTML = `<p class="text-gray-500 col-span-full text-center">No items available in the shop.</p>`;
                 return;
             }
-            
             items.forEach(item => {
-                const canAfford = student.money >= item.price;
+                const canAfford = (student.money || 0) >= item.price;
                 const itemEl = document.createElement('div');
-                itemEl.className = `p-4 bg-white rounded-lg shadow-md ${canAfford ? 'border-green-200' : 'border-gray-200 opacity-75'} border-2`;
-                
+                itemEl.className = `p-4 bg-white rounded-lg shadow-md flex flex-col text-center ${canAfford ? 'border-green-200' : 'border-gray-200 opacity-75'} border-2`;
                 itemEl.innerHTML = `
-                    <h3 class="font-bold text-lg text-gray-800 mb-2">${item.name}</h3>
+                    <h3 class="font-bold text-lg text-gray-800 mb-2 flex-grow">${item.name}</h3>
                     <p class="text-2xl font-bold text-blue-600 mb-4">$${item.price}</p>
                     <button class="purchase-btn w-full py-2 px-4 rounded-lg font-semibold transition-colors
-                        ${canAfford 
-                            ? 'bg-green-500 text-white hover:bg-green-600' 
-                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'}"
+                        ${canAfford ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}"
                         ${!canAfford ? 'disabled' : ''}>
                         ${canAfford ? 'Purchase' : 'Not Enough Money'}
                     </button>
                 `;
-                
                 container.appendChild(itemEl);
-                
-                // Add secure purchase logic
                 if (canAfford) {
                     itemEl.querySelector('.purchase-btn').addEventListener('click', async () => {
                         await securePurchaseItem(item, student);
@@ -266,30 +225,27 @@
             });
         }
 
-        // Secure purchase function that students can use directly
         async function securePurchaseItem(item, student) {
             showLoading(true);
             try {
-                // Double-check current student money (prevent race conditions)
-                const currentStudentDoc = await getDoc(getStudentDocRef(student.id));
+                // This logic is now validated by security rules.
+                const studentRef = getStudentDocRef(student.id);
+                const currentStudentDoc = await getDoc(studentRef);
                 if (!currentStudentDoc.exists()) {
-                    showModal("Student data not found.");
-                    return;
+                    showModal("Student data not found."); return;
                 }
-                
                 const currentMoney = currentStudentDoc.data().money || 0;
                 if (currentMoney < item.price) {
-                    showModal("Insufficient funds!");
-                    return;
+                    showModal("Insufficient funds!"); return;
                 }
                 
-                // Deduct money from student account first
-                const newBalance = currentMoney - item.price;
-                await updateDoc(getStudentDocRef(student.id), {
-                    money: newBalance
+                // Firestore security rules will validate this transaction.
+                await updateDoc(studentRef, {
+                    money: currentMoney - item.price,
+                    lastPurchaseItemId: item.id // Pass item ID for rule validation
                 });
                 
-                // Create purchase record for teacher notification
+                // Log the purchase for the teacher
                 await addDoc(getPurchaseHistoryCollectionRef(), {
                     studentId: student.id,
                     studentName: student.name,
@@ -297,12 +253,10 @@
                     price: item.price,
                     timestamp: serverTimestamp()
                 });
-                
-                showModal(`Successfully purchased "${item.name}" for $${item.price}!`);
-                
+                showModal(`Successfully purchased "${item.name}"!`);
             } catch (error) {
                 console.error("Purchase failed:", error);
-                showModal("Purchase failed. Please try again.");
+                showModal("Purchase failed. Please try again or check your balance.");
             } finally {
                 showLoading(false);
             }
@@ -319,7 +273,6 @@
 
         // --- EVENT LISTENERS & APP START ---
         document.addEventListener('DOMContentLoaded', () => {
-            // Assign UI Elements
             loginView = document.getElementById('login-view');
             studentView = document.getElementById('student-view');
             teacherView = document.getElementById('teacher-view');
@@ -352,7 +305,6 @@
             document.getElementById('show-login-btn').addEventListener('click', () => showView(loginView));
             document.querySelectorAll('.logout-btn').forEach(btn => btn.addEventListener('click', logout));
             
-            // Login Form
             document.getElementById('login-form').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const email = document.getElementById('login-email').value;
@@ -368,58 +320,39 @@
                 }
             });
 
-            // Registration Form
             document.getElementById('registration-form').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const code = document.getElementById('registration-code').value.trim();
                 const email = document.getElementById('registration-email').value.trim();
                 const password = document.getElementById('registration-password').value;
                 if (password.length < 6) {
-                    showModal("Password must be at least 6 characters long.");
-                    return;
+                    showModal("Password must be at least 6 characters long."); return;
                 }
                 showLoading(true);
                 try {
-                    // Find student document with this registration code
                     const q = query(getStudentsCollectionRef(), where("registrationCode", "==", code));
                     const querySnapshot = await getDocs(q);
-
                     if (querySnapshot.empty) {
-                        showModal("Invalid Registration Code.");
-                        showLoading(false);
-                        return;
+                        showModal("Invalid Registration Code."); showLoading(false); return;
                     }
-
                     const studentDoc = querySnapshot.docs[0];
                     if (studentDoc.data().isClaimed) {
-                        showModal("This Registration Code has already been used.");
-                        showLoading(false);
-                        return;
+                        showModal("This Registration Code has already been used."); showLoading(false); return;
                     }
-                    
-                    // Create the user in Firebase Auth
                     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                     const user = userCredential.user;
 
-                    // This part is tricky. We need to move the data to a new document with the user's UID as the ID.
                     const batch = writeBatch(db);
                     const oldDocRef = studentDoc.ref;
                     const newDocRef = getStudentDocRef(user.uid);
                     
                     const studentData = studentDoc.data();
-                    const updatedData = {
-                        ...studentData,
-                        isClaimed: true,
-                        registrationCode: null, // Remove the code
-                        email: email
-                    };
+                    const updatedData = { ...studentData, isClaimed: true, registrationCode: null, email: email };
                     
-                    batch.set(newDocRef, updatedData); // Create the new document
-                    batch.delete(oldDocRef); // Delete the old temporary document
+                    batch.set(newDocRef, updatedData);
+                    batch.delete(oldDocRef);
                     
                     await batch.commit();
-                    // onAuthStateChanged will now log the user in and load their dashboard.
-
                 } catch (error) {
                     console.error("Registration failed:", error);
                     if (error.code === 'auth/email-already-in-use') {
@@ -432,7 +365,6 @@
                 }
             });
 
-            // Teacher: Add New Student
             document.getElementById('add-student-form').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const studentNameInput = document.getElementById('new-student-name');
@@ -440,17 +372,12 @@
                 if (!name) { showModal("Please enter a student name."); return; }
                 showLoading(true);
                 try {
-                    // Generate a simple random code
                     const registrationCode = Math.random().toString(36).substring(2, 8).toUpperCase();
                     await addDoc(getStudentsCollectionRef(), { 
-                        name: name, 
-                        xp: 0, 
-                        money: 0,
-                        isClaimed: false,
-                        registrationCode: registrationCode
+                        name: name, xp: 0, money: 0, isClaimed: false, registrationCode: registrationCode
                     });
                     studentNameInput.value = '';
-                    showModal(`Student "${name}" added with registration code: ${registrationCode}`);
+                    showModal(`Student "${name}" added!`);
                 } catch (error) {
                     console.error("Error adding student:", error);
                     showModal("Failed to add student.");
@@ -459,7 +386,6 @@
                 }
             });
             
-            // Teacher: Add Item
             document.getElementById('add-item-form').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const itemNameInput = document.getElementById('new-item-name');
@@ -581,13 +507,7 @@
                         </form>
                     </section>
                     <section class="bg-white p-6 rounded-xl shadow-lg">
-                        <div class="flex justify-between items-center mb-4">
-                            <h2 class="text-2xl font-bold text-gray-700">Purchase History</h2>
-                            <div class="relative">
-                                <span class="text-sm text-gray-600">Recent Purchases</span>
-                                <span id="purchase-notification-badge" class="hidden absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">0</span>
-                            </div>
-                        </div>
+                        <h2 class="text-2xl font-bold text-gray-700 mb-4">Purchase History</h2>
                         <div id="purchase-history-list" class="space-y-2 max-h-96 overflow-y-auto"></div>
                     </section>
                 </div>
