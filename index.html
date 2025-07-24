@@ -9,7 +9,7 @@
     <script type="module">
         // Firebase Imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, addDoc, deleteDoc, query, getDocs, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, addDoc, deleteDoc, query, getDocs, serverTimestamp, writeBatch, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         // --- CONFIGURATION ---
@@ -68,7 +68,7 @@
             if (purchaseHistoryUnsubscribe) purchaseHistoryUnsubscribe();
             purchaseHistoryUnsubscribe = onSnapshot(query(getPurchaseHistoryCollectionRef()), (snapshot) => {
                 const history = [];
-                snapshot.forEach(doc => history.push(doc.data()));
+                snapshot.forEach(doc => history.push({ id: doc.id, ...doc.data() }));
                 history.sort((a, b) => (b.timestamp?.toMillis() || 0) - (a.timestamp?.toMillis() || 0));
                 renderPurchaseHistory(history);
             });
@@ -118,8 +118,93 @@
             });
         }
         
-        function renderTeacherShopList(items) { /* Unchanged */ }
-        function renderPurchaseHistory(history) { /* Unchanged */ }
+        function renderTeacherShopList(items) {
+            const container = document.getElementById('teacher-shop-list');
+            container.innerHTML = '';
+            
+            if (items.length === 0) {
+                container.innerHTML = `<p class="text-gray-500">No items in the shop yet.</p>`;
+                return;
+            }
+            
+            items.forEach(item => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'p-3 bg-gray-50 rounded-lg border flex justify-between items-center';
+                
+                itemEl.innerHTML = `
+                    <div>
+                        <p class="font-semibold text-gray-800">${item.name}</p>
+                        <p class="text-sm text-blue-600">$${item.price}</p>
+                    </div>
+                    <button class="delete-item-btn bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">Delete</button>
+                `;
+                
+                container.appendChild(itemEl);
+                
+                itemEl.querySelector('.delete-item-btn').addEventListener('click', async () => {
+                    if (confirm(`Delete "${item.name}" from the shop?`)) {
+                        showLoading(true);
+                        try {
+                            await deleteDoc(getShopItemDocRef(item.id));
+                        } catch (error) {
+                            console.error("Error deleting item:", error);
+                            showModal("Failed to delete item.");
+                        } finally {
+                            showLoading(false);
+                        }
+                    }
+                });
+            });
+        }
+
+        function renderPurchaseHistory(history) {
+            const container = document.getElementById('purchase-history-list');
+            container.innerHTML = '';
+            
+            if (history.length === 0) {
+                container.innerHTML = `<p class="text-gray-500">No purchases yet.</p>`;
+                return;
+            }
+            
+            history.forEach(purchase => {
+                const purchaseEl = document.createElement('div');
+                purchaseEl.className = 'p-3 bg-gray-50 rounded-lg border mb-2';
+                
+                const date = purchase.timestamp?.toDate().toLocaleDateString() || 'Unknown Date';
+                const time = purchase.timestamp?.toDate().toLocaleTimeString() || '';
+                
+                purchaseEl.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div class="flex-grow">
+                            <p class="font-semibold text-gray-800">${purchase.studentName}</p>
+                            <p class="text-sm text-gray-600">${purchase.itemName}</p>
+                            <p class="text-sm font-semibold text-red-600">-$${purchase.price}</p>
+                            <p class="text-xs text-gray-500">${date} ${time}</p>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-semibold">Completed</span>
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(purchaseEl);
+            });
+            
+            // Show notification badge if there are recent purchases (within last 30 minutes)
+            const recentPurchases = history.filter(purchase => {
+                if (!purchase.timestamp) return false;
+                const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+                return purchase.timestamp.toDate() > thirtyMinutesAgo;
+            });
+            
+            const notificationBadge = document.getElementById('purchase-notification-badge');
+            if (recentPurchases.length > 0) {
+                notificationBadge.textContent = recentPurchases.length;
+                notificationBadge.classList.remove('hidden');
+            } else {
+                notificationBadge.classList.add('hidden');
+            }
+        }
 
         // --- STUDENT VIEW LOGIC ---
         async function loadStudentDashboard(uid) {
@@ -138,8 +223,90 @@
             });
         }
 
-        function renderStudentHeader(student) { /* Unchanged */ }
-        function renderStudentShop(items, student) { /* Unchanged, uses secure purchase logic */ }
+        function renderStudentHeader(student) {
+            document.getElementById('student-name').textContent = student.name;
+            document.getElementById('student-xp').textContent = student.xp || 0;
+            document.getElementById('student-money').textContent = student.money || 0;
+        }
+
+        function renderStudentShop(items, student) {
+            const container = document.getElementById('student-shop-container');
+            container.innerHTML = '';
+            
+            if (items.length === 0) {
+                container.innerHTML = `<p class="text-gray-500">No items available in the shop.</p>`;
+                return;
+            }
+            
+            items.forEach(item => {
+                const canAfford = student.money >= item.price;
+                const itemEl = document.createElement('div');
+                itemEl.className = `p-4 bg-white rounded-lg shadow-md ${canAfford ? 'border-green-200' : 'border-gray-200 opacity-75'} border-2`;
+                
+                itemEl.innerHTML = `
+                    <h3 class="font-bold text-lg text-gray-800 mb-2">${item.name}</h3>
+                    <p class="text-2xl font-bold text-blue-600 mb-4">$${item.price}</p>
+                    <button class="purchase-btn w-full py-2 px-4 rounded-lg font-semibold transition-colors
+                        ${canAfford 
+                            ? 'bg-green-500 text-white hover:bg-green-600' 
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'}"
+                        ${!canAfford ? 'disabled' : ''}>
+                        ${canAfford ? 'Purchase' : 'Not Enough Money'}
+                    </button>
+                `;
+                
+                container.appendChild(itemEl);
+                
+                // Add secure purchase logic
+                if (canAfford) {
+                    itemEl.querySelector('.purchase-btn').addEventListener('click', async () => {
+                        await securePurchaseItem(item, student);
+                    });
+                }
+            });
+        }
+
+        // Secure purchase function that students can use directly
+        async function securePurchaseItem(item, student) {
+            showLoading(true);
+            try {
+                // Double-check current student money (prevent race conditions)
+                const currentStudentDoc = await getDoc(getStudentDocRef(student.id));
+                if (!currentStudentDoc.exists()) {
+                    showModal("Student data not found.");
+                    return;
+                }
+                
+                const currentMoney = currentStudentDoc.data().money || 0;
+                if (currentMoney < item.price) {
+                    showModal("Insufficient funds!");
+                    return;
+                }
+                
+                // Deduct money from student account first
+                const newBalance = currentMoney - item.price;
+                await updateDoc(getStudentDocRef(student.id), {
+                    money: newBalance
+                });
+                
+                // Create purchase record for teacher notification
+                await addDoc(getPurchaseHistoryCollectionRef(), {
+                    studentId: student.id,
+                    studentName: student.name,
+                    itemName: item.name,
+                    price: item.price,
+                    timestamp: serverTimestamp()
+                });
+                
+                showModal(`Successfully purchased "${item.name}" for $${item.price}!`);
+                
+            } catch (error) {
+                console.error("Purchase failed:", error);
+                showModal("Purchase failed. Please try again.");
+            } finally {
+                showLoading(false);
+            }
+        }
 
         // --- AUTH & LOGIN LOGIC ---
         function logout() {
@@ -368,22 +535,6 @@
         <!-- Student View -->
         <div id="student-view" class="hidden">
             <header class="bg-white p-6 rounded-xl shadow-lg mb-8 flex flex-col sm:flex-row justify-between items-center">
-                <h1 class="text-3xl font-bold text-gray-800">Welcome, <span id="student-name"></span>!</h1>
-                <div class="flex items-center gap-6 mt-4 sm:mt-0">
-                    <div class="text-center"><p class="text-sm text-gray-500">XP</p><p class="text-3xl font-bold text-green-500" id="student-xp">0</p></div>
-                    <div class="text-center"><p class="text-sm text-gray-500">Money</p><p class="text-3xl font-bold text-blue-500" id="student-money">0</p></div>
-                    <button class="logout-btn bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600">Logout</button>
-                </div>
-            </header>
-            <div>
-                <h2 class="text-2xl font-bold text-gray-700 mb-6">Class Shop</h2>
-                <div id="student-shop-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
-            </div>
-        </div>
-
-        <!-- Teacher View -->
-        <div id="teacher-view" class="hidden">
-            <header class="bg-white p-6 rounded-xl shadow-lg mb-8 flex justify-between items-center">
                 <h1 class="text-3xl font-bold text-gray-800">Teacher Dashboard</h1>
                 <button class="logout-btn bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600">Logout</button>
             </header>
@@ -413,7 +564,13 @@
                         </form>
                     </section>
                     <section class="bg-white p-6 rounded-xl shadow-lg">
-                        <h2 class="text-2xl font-bold text-gray-700 mb-4">Purchase History</h2>
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-2xl font-bold text-gray-700">Purchase History</h2>
+                            <div class="relative">
+                                <span class="text-sm text-gray-600">Recent Purchases</span>
+                                <span id="purchase-notification-badge" class="hidden absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">0</span>
+                            </div>
+                        </div>
                         <div id="purchase-history-list" class="space-y-2 max-h-96 overflow-y-auto"></div>
                     </section>
                 </div>
@@ -423,4 +580,20 @@
     <div id="loading-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"><div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-white"></div></div>
     <div id="modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"><div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full text-center"><p id="modal-message" class="text-lg text-gray-800 mb-4"></p><button id="modal-close" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-indigo-700">Close</button></div></div>
 </body>
-</html>
+</html>">Welcome, <span id="student-name"></span>!</h1>
+                <div class="flex items-center gap-6 mt-4 sm:mt-0">
+                    <div class="text-center"><p class="text-sm text-gray-500">XP</p><p class="text-3xl font-bold text-green-500" id="student-xp">0</p></div>
+                    <div class="text-center"><p class="text-sm text-gray-500">Money</p><p class="text-3xl font-bold text-blue-500" id="student-money">0</p></div>
+                    <button class="logout-btn bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600">Logout</button>
+                </div>
+            </header>
+            <div>
+                <h2 class="text-2xl font-bold text-gray-700 mb-6">Class Shop</h2>
+                <div id="student-shop-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
+            </div>
+        </div>
+
+        <!-- Teacher View -->
+        <div id="teacher-view" class="hidden">
+            <header class="bg-white p-6 rounded-xl shadow-lg mb-8 flex justify-between items-center">
+                <h1 class="text-3xl font-bold text-gray-800
