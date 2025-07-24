@@ -23,7 +23,6 @@
             measurementId: "G-MDZXM0ZDSF"
         };
         const appId = firebaseConfig.projectId;
-        // IMPORTANT: Change this to the email you will use to log in as the teacher.
         const TEACHER_EMAIL = "teacher@example.com"; 
 
         // --- FIREBASE INITIALIZATION ---
@@ -43,16 +42,16 @@
         }
         
         // --- DATA PATHS ---
-        const getStudentsCollectionRef = () => collection(db, `classroom-rewards/${appId}/students`);
-        const getStudentDocRef = (studentId) => doc(db, `classroom-rewards/${appId}/students/${studentId}`);
-        const getShopCollectionRef = () => collection(db, `classroom-rewards/${appId}/shop`);
-        const getShopItemDocRef = (itemId) => doc(db, `classroom-rewards/${appId}/shop/${itemId}`);
-        const getPurchaseHistoryCollectionRef = () => collection(db, `classroom-rewards/${appId}/purchase_history`);
+        const getStudentsCollectionRef = () => collection(db, `students`);
+        const getStudentDocRef = (studentId) => doc(db, `students/${studentId}`);
+        const getInvitesCollectionRef = () => collection(db, `invites`);
+        const getShopCollectionRef = () => collection(db, `shop`);
+        const getShopItemDocRef = (itemId) => doc(db, `shop/${itemId}`);
+        const getPurchaseHistoryCollectionRef = () => collection(db, `purchase_history`);
 
         // --- TEACHER VIEW LOGIC ---
         async function loadTeacherDashboard() {
             showView(teacherView);
-            // Listeners for students, shop, and history
             if (allStudentsUnsubscribe) allStudentsUnsubscribe();
             allStudentsUnsubscribe = onSnapshot(getStudentsCollectionRef(), (snapshot) => {
                 const students = [];
@@ -77,18 +76,15 @@
         function renderTeacherStudentList(students) {
             const container = document.getElementById('teacher-student-list');
             container.innerHTML = '';
-            if (students.length === 0) { container.innerHTML = `<p class="text-gray-500">No students have been added yet.</p>`; return; }
+            if (students.length === 0) { container.innerHTML = `<p class="text-gray-500">No students have registered yet.</p>`; return; }
             students.forEach(student => {
                 const studentEl = document.createElement('div');
                 studentEl.className = 'p-4 bg-white rounded-lg shadow-md';
-                let registrationInfo = student.isClaimed
-                    ? `<p class="text-sm text-green-600 font-semibold">Account Claimed by: ${student.email || 'N/A'}</p>`
-                    : `<p class="text-sm text-red-600 font-semibold">Registration Code: <code class="bg-red-100 p-1 rounded">${student.registrationCode}</code></p>`;
                 studentEl.innerHTML = `
                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                         <div class="flex-grow">
                             <p class="font-bold text-lg text-gray-800">${student.name}</p>
-                            ${registrationInfo}
+                            <p class="text-sm text-gray-500">${student.email || ''}</p>
                             <p class="text-sm text-blue-600 font-semibold">XP: ${student.xp || 0} | Money: $${student.money || 0}</p>
                         </div>
                         <div class="flex items-center gap-2">
@@ -120,31 +116,20 @@
         function renderTeacherShopList(items) {
             const container = document.getElementById('teacher-shop-list');
             container.innerHTML = '';
-            if (items.length === 0) {
-                container.innerHTML = `<p class="text-gray-500">No items in the shop yet.</p>`;
-                return;
-            }
+            if (items.length === 0) { container.innerHTML = `<p class="text-gray-500">No items in the shop yet.</p>`; return; }
             items.forEach(item => {
                 const itemEl = document.createElement('div');
                 itemEl.className = 'p-3 bg-gray-50 rounded-lg border flex justify-between items-center';
                 itemEl.innerHTML = `
-                    <div>
-                        <p class="font-semibold text-gray-800">${item.name}</p>
-                        <p class="text-sm text-blue-600">$${item.price}</p>
-                    </div>
+                    <div><p class="font-semibold text-gray-800">${item.name}</p><p class="text-sm text-blue-600">$${item.price}</p></div>
                     <button class="delete-item-btn bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">Delete</button>
                 `;
                 container.appendChild(itemEl);
                 itemEl.querySelector('.delete-item-btn').addEventListener('click', async () => {
                     showLoading(true);
-                    try {
-                        await deleteDoc(getShopItemDocRef(item.id));
-                    } catch (error) {
-                        console.error("Error deleting item:", error);
-                        showModal("Failed to delete item.");
-                    } finally {
-                        showLoading(false);
-                    }
+                    try { await deleteDoc(getShopItemDocRef(item.id)); }
+                    catch (error) { console.error("Error deleting item:", error); showModal("Failed to delete item."); }
+                    finally { showLoading(false); }
                 });
             });
         }
@@ -152,10 +137,7 @@
         function renderPurchaseHistory(history) {
             const container = document.getElementById('purchase-history-list');
             container.innerHTML = '';
-            if (history.length === 0) {
-                container.innerHTML = `<p class="text-gray-500">No purchases yet.</p>`;
-                return;
-            }
+            if (history.length === 0) { container.innerHTML = `<p class="text-gray-500">No purchases yet.</p>`; return; }
             history.forEach(purchase => {
                 const purchaseEl = document.createElement('div');
                 purchaseEl.className = 'p-3 bg-gray-50 rounded-lg border mb-2';
@@ -184,7 +166,6 @@
                          renderStudentShop(items, student);
                     });
                 } else {
-                    // This can happen if the teacher deletes the student account.
                     showModal("Your account data could not be found. Please log out.");
                 }
             });
@@ -199,10 +180,7 @@
         function renderStudentShop(items, student) {
             const container = document.getElementById('student-shop-container');
             container.innerHTML = '';
-            if (items.length === 0) {
-                container.innerHTML = `<p class="text-gray-500 col-span-full text-center">No items available in the shop.</p>`;
-                return;
-            }
+            if (items.length === 0) { container.innerHTML = `<p class="text-gray-500 col-span-full text-center">No items available in the shop.</p>`; return; }
             items.forEach(item => {
                 const canAfford = (student.money || 0) >= item.price;
                 const itemEl = document.createElement('div');
@@ -228,24 +206,17 @@
         async function securePurchaseItem(item, student) {
             showLoading(true);
             try {
-                // This logic is now validated by security rules.
                 const studentRef = getStudentDocRef(student.id);
                 const currentStudentDoc = await getDoc(studentRef);
-                if (!currentStudentDoc.exists()) {
-                    showModal("Student data not found."); return;
-                }
+                if (!currentStudentDoc.exists()) { showModal("Student data not found."); return; }
                 const currentMoney = currentStudentDoc.data().money || 0;
-                if (currentMoney < item.price) {
-                    showModal("Insufficient funds!"); return;
-                }
+                if (currentMoney < item.price) { showModal("Insufficient funds!"); return; }
                 
-                // Firestore security rules will validate this transaction.
                 await updateDoc(studentRef, {
                     money: currentMoney - item.price,
-                    lastPurchaseItemId: item.id // Pass item ID for rule validation
+                    lastPurchaseItemId: item.id
                 });
                 
-                // Log the purchase for the teacher
                 await addDoc(getPurchaseHistoryCollectionRef(), {
                     studentId: student.id,
                     studentName: student.name,
@@ -325,34 +296,28 @@
                 const code = document.getElementById('registration-code').value.trim();
                 const email = document.getElementById('registration-email').value.trim();
                 const password = document.getElementById('registration-password').value;
-                if (password.length < 6) {
-                    showModal("Password must be at least 6 characters long."); return;
-                }
+                if (password.length < 6) { showModal("Password must be at least 6 characters long."); return; }
                 showLoading(true);
                 try {
-                    const q = query(getStudentsCollectionRef(), where("registrationCode", "==", code));
+                    const q = query(getInvitesCollectionRef(), where("registrationCode", "==", code));
                     const querySnapshot = await getDocs(q);
                     if (querySnapshot.empty) {
                         showModal("Invalid Registration Code."); showLoading(false); return;
                     }
-                    const studentDoc = querySnapshot.docs[0];
-                    if (studentDoc.data().isClaimed) {
-                        showModal("This Registration Code has already been used."); showLoading(false); return;
-                    }
+                    const inviteDoc = querySnapshot.docs[0];
+                    
                     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                     const user = userCredential.user;
 
-                    const batch = writeBatch(db);
-                    const oldDocRef = studentDoc.ref;
-                    const newDocRef = getStudentDocRef(user.uid);
+                    const inviteData = inviteDoc.data();
+                    await setDoc(getStudentDocRef(user.uid), {
+                        name: inviteData.name,
+                        email: email,
+                        xp: inviteData.xp,
+                        money: inviteData.money
+                    });
                     
-                    const studentData = studentDoc.data();
-                    const updatedData = { ...studentData, isClaimed: true, registrationCode: null, email: email };
-                    
-                    batch.set(newDocRef, updatedData);
-                    batch.delete(oldDocRef);
-                    
-                    await batch.commit();
+                    await deleteDoc(inviteDoc.ref); // Delete the invite so it can't be reused
                 } catch (error) {
                     console.error("Registration failed:", error);
                     if (error.code === 'auth/email-already-in-use') {
@@ -365,7 +330,7 @@
                 }
             });
 
-            document.getElementById('add-student-form').addEventListener('submit', async (e) => {
+            document.getElementById('add-invite-form').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const studentNameInput = document.getElementById('new-student-name');
                 const name = studentNameInput.value.trim();
@@ -373,14 +338,14 @@
                 showLoading(true);
                 try {
                     const registrationCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-                    await addDoc(getStudentsCollectionRef(), { 
-                        name: name, xp: 0, money: 0, isClaimed: false, registrationCode: registrationCode
+                    await addDoc(getInvitesCollectionRef(), { 
+                        name: name, xp: 0, money: 0, registrationCode: registrationCode
                     });
                     studentNameInput.value = '';
-                    showModal(`Student "${name}" added!`);
+                    showModal(`Invite created for "${name}"! Their code is: ${registrationCode}`);
                 } catch (error) {
-                    console.error("Error adding student:", error);
-                    showModal("Failed to add student.");
+                    console.error("Error creating invite:", error);
+                    showModal("Failed to create invite.");
                 } finally {
                     showLoading(false);
                 }
@@ -416,20 +381,11 @@
             <div class="max-w-md mx-auto mt-20 bg-white p-8 rounded-xl shadow-lg">
                 <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Login</h1>
                 <form id="login-form">
-                    <div class="mb-4">
-                        <label for="login-email" class="block text-sm font-medium text-gray-700">Email</label>
-                        <input type="email" id="login-email" class="mt-1 w-full p-3 border rounded-lg" required>
-                    </div>
-                    <div class="mb-6">
-                        <label for="login-password" class="block text-sm font-medium text-gray-700">Password</label>
-                        <input type="password" id="login-password" class="mt-1 w-full p-3 border rounded-lg" required>
-                    </div>
+                    <div class="mb-4"><label for="login-email" class="block text-sm font-medium text-gray-700">Email</label><input type="email" id="login-email" class="mt-1 w-full p-3 border rounded-lg" required></div>
+                    <div class="mb-6"><label for="login-password" class="block text-sm font-medium text-gray-700">Password</label><input type="password" id="login-password" class="mt-1 w-full p-3 border rounded-lg" required></div>
                     <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-700">Login</button>
                 </form>
-                <p class="text-center mt-4 text-sm">
-                    First time here? 
-                    <button id="show-registration-btn" class="font-semibold text-indigo-600 hover:underline">Register your account</button>
-                </p>
+                <p class="text-center mt-4 text-sm">First time here? <button id="show-registration-btn" class="font-semibold text-indigo-600 hover:underline">Register your account</button></p>
             </div>
         </div>
 
@@ -438,24 +394,12 @@
              <div class="max-w-md mx-auto mt-20 bg-white p-8 rounded-xl shadow-lg">
                 <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Register Your Account</h1>
                 <form id="registration-form">
-                    <div class="mb-4">
-                        <label for="registration-code" class="block text-sm font-medium text-gray-700">Registration Code</label>
-                        <input type="text" id="registration-code" class="mt-1 w-full p-3 border rounded-lg" placeholder="Code from your teacher" required>
-                    </div>
-                    <div class="mb-4">
-                        <label for="registration-email" class="block text-sm font-medium text-gray-700">Your Email</label>
-                        <input type="email" id="registration-email" class="mt-1 w-full p-3 border rounded-lg" required>
-                    </div>
-                    <div class="mb-6">
-                        <label for="registration-password" class="block text-sm font-medium text-gray-700">Create a Password</label>
-                        <input type="password" id="registration-password" class="mt-1 w-full p-3 border rounded-lg" placeholder="At least 6 characters" required>
-                    </div>
+                    <div class="mb-4"><label for="registration-code" class="block text-sm font-medium text-gray-700">Registration Code</label><input type="text" id="registration-code" class="mt-1 w-full p-3 border rounded-lg" placeholder="Code from your teacher" required></div>
+                    <div class="mb-4"><label for="registration-email" class="block text-sm font-medium text-gray-700">Your Email</label><input type="email" id="registration-email" class="mt-1 w-full p-3 border rounded-lg" required></div>
+                    <div class="mb-6"><label for="registration-password" class="block text-sm font-medium text-gray-700">Create a Password</label><input type="password" id="registration-password" class="mt-1 w-full p-3 border rounded-lg" placeholder="At least 6 characters" required></div>
                     <button type="submit" class="w-full bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700">Create Account</button>
                 </form>
-                 <p class="text-center mt-4 text-sm">
-                    Already have an account? 
-                    <button id="show-login-btn" class="font-semibold text-indigo-600 hover:underline">Login here</button>
-                </p>
+                 <p class="text-center mt-4 text-sm">Already have an account? <button id="show-login-btn" class="font-semibold text-indigo-600 hover:underline">Login here</button></p>
             </div>
         </div>
 
@@ -469,10 +413,7 @@
                     <button class="logout-btn bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600">Logout</button>
                 </div>
             </header>
-            <div>
-                <h2 class="text-2xl font-bold text-gray-700 mb-6">Class Shop</h2>
-                <div id="student-shop-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
-            </div>
+            <div><h2 class="text-2xl font-bold text-gray-700 mb-6">Class Shop</h2><div id="student-shop-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div></div>
         </div>
 
         <!-- Teacher View -->
@@ -485,11 +426,11 @@
                 <section class="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg">
                     <h2 class="text-2xl font-bold text-gray-700 mb-4">Manage Students</h2>
                     <div id="teacher-student-list" class="space-y-4 mb-6"></div>
-                     <form id="add-student-form" class="mt-6 pt-6 border-t">
-                         <h3 class="text-lg font-semibold text-gray-700 mb-2">Add New Student</h3>
+                     <form id="add-invite-form" class="mt-6 pt-6 border-t">
+                         <h3 class="text-lg font-semibold text-gray-700 mb-2">Create Student Invite</h3>
                          <div class="flex gap-2">
                             <input type="text" id="new-student-name" class="flex-grow p-2 border rounded-md" placeholder="Student's Full Name">
-                            <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600">Add Student</button>
+                            <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600">Create Invite</button>
                          </div>
                     </form>
                 </section>
