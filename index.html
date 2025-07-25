@@ -41,13 +41,13 @@
             view.classList.remove('hidden');
         }
         
-        // --- DATA PATHS ---
-        const getStudentsCollectionRef = () => collection(db, `students`);
-        const getStudentDocRef = (studentId) => doc(db, `students/${studentId}`);
-        const getInvitesCollectionRef = () => collection(db, `invites`);
-        const getShopCollectionRef = () => collection(db, `shop`);
-        const getShopItemDocRef = (itemId) => doc(db, `shop/${itemId}`);
-        const getPurchaseHistoryCollectionRef = () => collection(db, `purchase_history`);
+        // --- DATA PATHS - UPDATED TO MATCH SECURITY RULES ---
+        const getStudentsCollectionRef = () => collection(db, `classroom-rewards/${appId}/students`);
+        const getStudentDocRef = (studentId) => doc(db, `classroom-rewards/${appId}/students/${studentId}`);
+        const getInvitesCollectionRef = () => collection(db, `classroom-rewards/${appId}/invites`);
+        const getShopCollectionRef = () => collection(db, `classroom-rewards/${appId}/shop`);
+        const getShopItemDocRef = (itemId) => doc(db, `classroom-rewards/${appId}/shop/${itemId}`);
+        const getPurchaseHistoryCollectionRef = () => collection(db, `classroom-rewards/${appId}/purchase_history`);
 
         // --- TEACHER VIEW LOGIC ---
         async function loadTeacherDashboard() {
