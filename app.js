@@ -410,10 +410,7 @@ async function handleSaveShopItem() {
     const price = parseFloat(document.getElementById('item-price').value);
     const editingId = document.getElementById('edit-item-id').value;
 
-    if (!name |
-
-| isNaN(price) |
-| price < 0) {
+    if (!name || isNaN(price) || price < 0) {
         alert("Please enter a valid name and a non-negative price.");
         return;
     }
@@ -481,10 +478,7 @@ function loadFullPurchaseHistory() {
         historyTableBody.innerHTML = "";
         snapshot.forEach(doc => {
             const purchase = doc.data();
-            const studentName = allStudentsData[purchase.studentId]?.name |
-
-| purchase.studentName |
-| 'Unknown Student';
+            const studentName = allStudentsData[purchase.studentId]?.name || purchase.studentName || 'Unknown Student';
             const date = purchase.timestamp? purchase.timestamp.toDate().toLocaleString() : 'N/A';
             const row = historyTableBody.insertRow();
             row.innerHTML = `
