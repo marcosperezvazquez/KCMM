@@ -3,74 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin - Classroom Rewards</title>
+    <title>Classroom Rewards</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
-        <div id="access-denied-view" style="display: none; text-align: center;">
-            <h1>Access Denied</h1>
-            <p>You must be logged in as the teacher to access this page.</p>
-            <p><a href="index.html">Return to Student Portal</a></p>
+        <div id="auth-view">
+            <div id="login-container" class="auth-container">
+                <h2>Student Login</h2>
+                <input type="email" id="login-email" placeholder="Email">
+                <input type="password" id="login-password" placeholder="Password">
+                <button id="login-button">Login</button>
+                <p>Don't have an account? <span id="show-register" class="auth-toggle">Register here</span></p>
+                <p id="login-error" class="error-message"></p>
+            </div>
+
+            <div id="register-container" class="auth-container" style="display: none;">
+                <h2>Student Registration</h2>
+                <input type="text" id="register-name" placeholder="Your Full Name">
+                <input type="email" id="register-email" placeholder="Email">
+                <input type="password" id="register-password" placeholder="Password">
+                <button id="register-button">Register</button>
+                <p>Already have an account? <span id="show-login" class="auth-toggle">Login here</span></p>
+                <p id="register-error" class="error-message"></p>
+            </div>
         </div>
 
-        <div id="admin-panel-view" class="admin-panel">
+        <div id="dashboard-view" class="dashboard">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h1>Teacher Admin Panel</h1>
-                <button id="admin-logout-button" class="logout-button">Logout</button>
+                <h1>Welcome, <span id="student-name"></span>!</h1>
+                <button id="logout-button" class="logout-button">Logout</button>
+            </div>
+
+            <div class="user-info">
+                <div>XP: <span id="student-xp">0</span></div>
+                <div>Money: $<span id="student-money">0</span></div>
             </div>
 
             <section>
-                <h2>Student Management</h2>
-                <div class="admin-table-container">
-                    <table id="students-table">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Email</th>
-                                <th>XP</th>
-                                <th>Money</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            </tbody>
-                    </table>
+                <h2>Class Shop</h2>
+                <div id="shop-grid" class="shop-grid">
+                    <p>Loading shop items...</p>
                 </div>
             </section>
 
             <section>
-                <h2>Shop Management</h2>
-                <div id="shop-management-form">
-                    <h3>Add/Edit Shop Item</h3>
-                    <input type="hidden" id="edit-item-id">
-                    <input type="text" id="item-name" placeholder="Item Name">
-                    <input type="number" id="item-price" placeholder="Item Price">
-                    <button id="save-item-button">Save Item</button>
-                    <button id="cancel-edit-button" style="display: none; background-color: #95a5a6;">Cancel Edit</button>
-                </div>
+                <h2>Your Purchase History</h2>
                 <div class="admin-table-container">
-                    <table id="shop-table">
+                    <table id="purchase-history-table">
                         <thead>
                             <tr>
-                                <th>Item Name</th>
-                                <th>Price</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            </tbody>
-                    </table>
-                </div>
-            </section>
-
-            <section>
-                <h2>Full Purchase History</h2>
-                <div class="admin-table-container">
-                    <table id="full-purchase-history-table">
-                        <thead>
-                            <tr>
-                                <th>Student Name</th>
                                 <th>Item</th>
                                 <th>Cost</th>
                                 <th>Date</th>
@@ -81,7 +63,6 @@
                     </table>
                 </div>
             </section>
-
         </div>
     </div>
 
