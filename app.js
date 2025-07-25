@@ -59,7 +59,7 @@ onAuthStateChanged(auth, user => {
     } else {
         // User is signed out.
         if (onAdminPage) {
-            // **FIXED**: The listener no longer redirects. It just shows the access denied view.
+            // The listener no longer redirects. It just shows the access denied view.
             // The logout button's logic will handle the redirect.
             showAccessDenied();
         } else {
@@ -74,23 +74,31 @@ onAuthStateChanged(auth, user => {
 
 // --- UI TOGGLING FUNCTIONS ---
 function showAuthView() {
-    document.getElementById('auth-view').style.display = 'block';
-    document.getElementById('dashboard-view').style.display = 'none';
+    const authView = document.getElementById('auth-view');
+    const dashboardView = document.getElementById('dashboard-view');
+    if (authView) authView.style.display = 'block';
+    if (dashboardView) dashboardView.style.display = 'none';
 }
 
 function showDashboard() {
-    document.getElementById('auth-view').style.display = 'none';
-    document.getElementById('dashboard-view').style.display = 'block';
+    const authView = document.getElementById('auth-view');
+    const dashboardView = document.getElementById('dashboard-view');
+    if (authView) authView.style.display = 'none';
+    if (dashboardView) dashboardView.style.display = 'block';
 }
 
 function showAdminPanel() {
-    document.getElementById('admin-panel-view').style.display = 'block';
-    document.getElementById('access-denied-view').style.display = 'none';
+    const adminPanelView = document.getElementById('admin-panel-view');
+    const accessDeniedView = document.getElementById('access-denied-view');
+    if (adminPanelView) adminPanelView.style.display = 'block';
+    if (accessDeniedView) accessDeniedView.style.display = 'none';
 }
 
 function showAccessDenied() {
-    document.getElementById('admin-panel-view').style.display = 'none';
-    document.getElementById('access-denied-view').style.display = 'block';
+    const adminPanelView = document.getElementById('admin-panel-view');
+    const accessDeniedView = document.getElementById('access-denied-view');
+    if (adminPanelView) adminPanelView.style.display = 'none';
+    if (accessDeniedView) accessDeniedView.style.display = 'block';
 }
 
 
@@ -204,7 +212,7 @@ if (document.getElementById('login-button')) {
         const errorElem = document.getElementById('login-error');
         errorElem.textContent = '';
         signInWithEmailAndPassword(auth, email, password)
-           .catch(error => {
+          .catch(error => {
                 console.error("Login Error:", error);
                 errorElem.textContent = error.message;
             });
@@ -381,10 +389,8 @@ function loadFullPurchaseHistory() {
 
 // --- EVENT LISTENERS for admin.html ---
 if (document.getElementById('admin-panel-view')) {
-    // **FIXED**: The logout button now handles the redirect after signing out.
     document.getElementById('admin-logout-button').addEventListener('click', () => {
         signOut(auth).then(() => {
-            // Redirect to the student login page AFTER sign-out is complete.
             window.location.href = 'index.html';
         }).catch((error) => {
             console.error('Sign out error', error);
