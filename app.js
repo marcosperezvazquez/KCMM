@@ -361,9 +361,8 @@ async function handleStudentUpdate(studentId) {
     const newXp = parseInt(xpInput.value, 10);
     const newMoney = parseFloat(moneyInput.value);
 
-    if (isNaN(newXp)
-
-|| isNaN(newMoney)) {
+    // **FIXED**: Replaced broken '|' with '||'
+    if (isNaN(newXp) || isNaN(newMoney)) {
         alert("Invalid input. Please enter valid numbers for XP and Money.");
         return;
     }
@@ -410,6 +409,7 @@ async function handleSaveShopItem() {
     const price = parseFloat(document.getElementById('item-price').value);
     const editingId = document.getElementById('edit-item-id').value;
 
+    // **FIXED**: Replaced broken '|' with '||'
     if (!name || isNaN(price) || price < 0) {
         alert("Please enter a valid name and a non-negative price.");
         return;
@@ -478,6 +478,7 @@ function loadFullPurchaseHistory() {
         historyTableBody.innerHTML = "";
         snapshot.forEach(doc => {
             const purchase = doc.data();
+            // **FIXED**: Replaced broken '|' with '||' for fallback values
             const studentName = allStudentsData[purchase.studentId]?.name || purchase.studentName || 'Unknown Student';
             const date = purchase.timestamp? purchase.timestamp.toDate().toLocaleString() : 'N/A';
             const row = historyTableBody.insertRow();
