@@ -361,9 +361,9 @@ async function handleStudentUpdate(studentId) {
     const newXp = parseInt(xpInput.value, 10);
     const newMoney = parseFloat(moneyInput.value);
 
-    if (isNaN(newXp) ||
+    if (isNaN(newXp)
 
- isNaN(newMoney)) {
+|| isNaN(newMoney)) {
         alert("Invalid input. Please enter valid numbers for XP and Money.");
         return;
     }
