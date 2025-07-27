@@ -76,7 +76,10 @@ function loadAllStudents() {
                 <td>${student.name}</td><td>${student.email}</td>
                 <td><input type="number" value="${student.xp}" class="student-xp-input" data-id="${studentId}"></td>
                 <td><input type="number" value="${student.money}" step="0.01" class="student-money-input" data-id="${studentId}"></td>
-                <td><button class="update-student-button" data-id="${studentId}">Update</button></td>
+                <td>
+                    <button class="update-student-button" data-id="${studentId}">Update</button>
+                    <button class="delete-student-button" data-id="${studentId}" data-name="${student.name}" style="background-color: #e74c3c;">Delete</button>
+                </td>
             `;
         });
     });
@@ -98,6 +101,20 @@ async function handleStudentUpdate(studentId) {
     } catch (error) {
         console.error("Error updating student:", error);
         alert("Failed to update student. See console for details.");
+    }
+}
+
+async function handleDeleteStudent(studentId, studentName) {
+    if (!confirm(`Are you sure you want to delete the student "${studentName}"? This will delete their data permanently.`)) {
+        return;
+    }
+    const studentDocRef = doc(db, "classroom-rewards/main-class/students", studentId);
+    try {
+        await deleteDoc(studentDocRef);
+        alert(`Successfully deleted ${studentName}'s data.`);
+    } catch (error) {
+        console.error("Error deleting student data:", error);
+        alert("Failed to delete student data. See console for details.");
     }
 }
 
@@ -201,7 +218,7 @@ document.getElementById('login-button').addEventListener('click', () => {
     const errorElem = document.getElementById('login-error');
     errorElem.textContent = '';
     signInWithEmailAndPassword(auth, email, password)
-     .catch(error => {
+    .catch(error => {
             console.error("Login Error:", error);
             errorElem.textContent = error.message;
         });
@@ -214,6 +231,9 @@ document.getElementById('admin-logout-button').addEventListener('click', () => {
 document.getElementById('students-table').addEventListener('click', e => {
     if (e.target.classList.contains('update-student-button')) {
         handleStudentUpdate(e.target.dataset.id);
+    }
+    if (e.target.classList.contains('delete-student-button')) {
+        handleDeleteStudent(e.target.dataset.id, e.target.dataset.name);
     }
 });
 
