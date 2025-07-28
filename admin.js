@@ -218,7 +218,7 @@ document.getElementById('login-button').addEventListener('click', () => {
     const errorElem = document.getElementById('login-error');
     errorElem.textContent = '';
     signInWithEmailAndPassword(auth, email, password)
-    .catch(error => {
+   .catch(error => {
             console.error("Login Error:", error);
             errorElem.textContent = error.message;
         });
