@@ -20,8 +20,7 @@ import {
     where,
     runTransaction,
     serverTimestamp,
-    orderBy,
-    updateDoc
+    orderBy
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // --- INITIALIZATION ---
@@ -81,7 +80,7 @@ function initializeStudentDashboard(userId) {
         }
     });
     loadShop();
-    // Load class ranking from the public rankings collection. Default sort by XP.
+    // Load class ranking from the students collection. Default sort by XP.
     loadClassRanking(userId, 'xp');
     const rankingSelect = document.getElementById('ranking-criteria');
     if (rankingSelect) {
@@ -123,17 +122,12 @@ async function handlePurchase(itemId, itemName, itemPrice) {
     const price = parseFloat(itemPrice);
     const studentDocRef = doc(db, "classroom-rewards/main-class/students", user.uid);
     try {
-        // We'll store the updated money value outside the transaction so we
-        // can update the ranking document afterwards.
-        let updatedMoney;
         await runTransaction(db, async (transaction) => {
             const studentDoc = await transaction.get(studentDocRef);
             if (!studentDoc.exists()) { throw "Student document does not exist!"; }
             const currentMoney = studentDoc.data().money;
             if (currentMoney < price) { throw "You do not have enough money for this item."; }
             const newMoney = currentMoney - price;
-            // Save to outer scope
-            updatedMoney = newMoney;
             transaction.update(studentDocRef, { money: newMoney });
             const historyCollectionRef = collection(db, "classroom-rewards/main-class/purchase_history");
             const newHistoryRef = doc(historyCollectionRef);
@@ -146,9 +140,6 @@ async function handlePurchase(itemId, itemName, itemPrice) {
                 timestamp: serverTimestamp()
             });
         });
-        // After transaction completes, update the public ranking document
-        const rankingDocRef = doc(db, "classroom-rewards/main-class/rankings", user.uid);
-        await updateDoc(rankingDocRef, { money: updatedMoney });
         alert(`Purchase successful! You bought: ${itemName}`);
     } catch (e) {
         console.error("Transaction failed: ", e);
@@ -178,22 +169,20 @@ function loadStudentPurchaseHistory(userId) {
     });
 }
 
-// Function to load and display the class ranking. It sorts all students by the
-// selected criterion (either 'xp' or 'money') in descending order. The
-// logged-in student's row is highlighted for easy identification.
+// Load and display class ranking based on all students. Sort by XP or money.
 function loadClassRanking(userId, criteria = 'xp') {
     const tableBody = document.querySelector('#ranking-table tbody');
     if (!tableBody) return;
-    const rankingsRef = collection(db, "classroom-rewards/main-class/rankings");
+    const studentsRef = collection(db, "classroom-rewards/main-class/students");
     const orderField = criteria === 'money' ? 'money' : 'xp';
-    const q = query(rankingsRef, orderBy(orderField, 'desc'));
+    const q = query(studentsRef, orderBy(orderField, 'desc'));
     onSnapshot(q, (snapshot) => {
         tableBody.innerHTML = '';
         let rank = 1;
         snapshot.forEach((docSnap) => {
             const student = docSnap.data();
             const row = tableBody.insertRow();
-            // Highlight the current student's row
+            // Highlight current student's row
             if (docSnap.id === userId) {
                 row.style.fontWeight = 'bold';
                 row.style.backgroundColor = '#dfeaf4';
@@ -236,12 +225,7 @@ document.getElementById('register-button').addEventListener('click', async () =>
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
         const studentDocRef = doc(db, "classroom-rewards/main-class/students", user.uid);
-        // Create the private student document with initial XP and money values
         await setDoc(studentDocRef, { name: name, email: email, xp: 0, money: 0 });
-        // Also create the public ranking document so that the student appears
-        // immediately on the leaderboard. Use the same ID for easy lookup.
-        const rankingDocRef = doc(db, "classroom-rewards/main-class/rankings", user.uid);
-        await setDoc(rankingDocRef, { name: name, xp: 0, money: 0 });
     } catch (error) {
         console.error("Registration Error:", error);
         errorElem.textContent = error.message;
