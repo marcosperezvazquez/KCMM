@@ -20,13 +20,14 @@ import {
     deleteDoc,
     serverTimestamp,
     orderBy,
-    setDoc
+    initializeFirestore
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // --- INITIALIZATION ---
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+// Use initializeFirestore with experimentalForceLongPolling to mitigate 400 Unknown SID errors on some networks
+const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 
 const TEACHER_EMAIL = "teacher@example.com";
 
@@ -82,17 +83,6 @@ function loadAllStudents() {
                     <button class="delete-student-button" data-id="${studentId}" data-name="${student.name}" style="background-color: #e74c3c;">Delete</button>
                 </td>
             `;
-
-            // Update the public ranking document for this student. This ensures that
-            // the publicly readable collection stays in sync with any changes to
-            // the underlying students collection. Use the same ID so it can be
-            // accessed by students without revealing the entire students collection.
-            const rankingDocRef = doc(db, "classroom-rewards/main-class/rankings", studentId);
-            setDoc(rankingDocRef, {
-                name: student.name,
-                xp: student.xp,
-                money: student.money
-            }, { merge: true });
         });
     });
 }
@@ -109,11 +99,6 @@ async function handleStudentUpdate(studentId) {
     const studentDocRef = doc(db, "classroom-rewards/main-class/students", studentId);
     try {
         await updateDoc(studentDocRef, { xp: newXp, money: newMoney });
-        // Also update the ranking document so students see the latest values. This
-        // keeps the separate ranking collection synchronized with the main
-        // students collection. Only fields that may change are updated.
-        const rankingDocRef = doc(db, "classroom-rewards/main-class/rankings", studentId);
-        await setDoc(rankingDocRef, { xp: newXp, money: newMoney }, { merge: true });
         alert("Student updated successfully!");
     } catch (error) {
         console.error("Error updating student:", error);
@@ -128,10 +113,6 @@ async function handleDeleteStudent(studentId, studentName) {
     const studentDocRef = doc(db, "classroom-rewards/main-class/students", studentId);
     try {
         await deleteDoc(studentDocRef);
-        // Also remove the corresponding ranking document so the leaderboard
-        // no longer displays this student.
-        const rankingDocRef = doc(db, "classroom-rewards/main-class/rankings", studentId);
-        await deleteDoc(rankingDocRef);
         alert(`Successfully deleted ${studentName}'s data.`);
     } catch (error) {
         console.error("Error deleting student data:", error);

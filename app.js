@@ -22,11 +22,14 @@ import {
     serverTimestamp,
     orderBy
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+// Import initializeFirestore to enable long polling; this avoids 400 Unknown SID errors on some networks.
+import { initializeFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // --- INITIALIZATION ---
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+// Use initializeFirestore with experimentalForceLongPolling to avoid channel errors on some networks
+const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 
 const TEACHER_EMAIL = "teacher@example.com";
 
