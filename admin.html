@@ -26,10 +26,18 @@
 
             <section>
                 <h2>Student Management</h2>
+                <!-- Award controls: select students via checkboxes and award XP (and money) in bulk -->
+                <div id="award-controls" style="margin-bottom: 10px;">
+                    <span>Award XP & Money:</span>
+                    <button id="award-xp-5" class="award-btn">+5</button>
+                    <button id="award-xp-10" class="award-btn">+10</button>
+                    <button id="award-xp-20" class="award-btn">+20</button>
+                </div>
                 <div class="admin-table-container">
                     <table id="students-table">
                         <thead>
                             <tr>
+                                <th>Select</th>
                                 <th>Name</th>
                                 <th>Email</th>
                                 <th>XP</th>

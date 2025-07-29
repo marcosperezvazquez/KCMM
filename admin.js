@@ -75,6 +75,7 @@ function loadAllStudents() {
             allStudentsData[studentId] = student;
             const row = studentsTableBody.insertRow();
             row.innerHTML = `
+                <td><input type="checkbox" class="student-select-checkbox" data-id="${studentId}"></td>
                 <td>${student.name}</td><td>${student.email}</td>
                 <td><input type="number" value="${student.xp}" class="student-xp-input" data-id="${studentId}"></td>
                 <td><input type="number" value="${student.money}" step="0.01" class="student-money-input" data-id="${studentId}"></td>
@@ -213,6 +214,40 @@ function loadFullPurchaseHistory() {
     });
 }
 
+// --- BULK AWARDING LOGIC ---
+/**
+ * Awards a specified amount of XP (and the same amount of Money) to all students
+ * that have their checkbox selected in the students table. XP and Money are
+ * incremented in tandem because 1 XP = 1$ according to business logic.
+ * @param {number} amount The amount of XP/Money to award (must be positive).
+ */
+async function awardXpToSelected(amount) {
+    const checkboxes = document.querySelectorAll('.student-select-checkbox:checked');
+    if (!checkboxes.length) {
+        alert('Please select at least one student to award XP.');
+        return;
+    }
+    for (const checkbox of checkboxes) {
+        const studentId = checkbox.dataset.id;
+        const currentData = allStudentsData[studentId];
+        if (!currentData) continue;
+        const newXp = (currentData.xp || 0) + amount;
+        const newMoney = (currentData.money || 0) + amount;
+        const studentDocRef = doc(db, "classroom-rewards/main-class/students", studentId);
+        try {
+            await updateDoc(studentDocRef, { xp: newXp, money: newMoney });
+            // Update local cache so subsequent awards reflect new totals
+            allStudentsData[studentId].xp = newXp;
+            allStudentsData[studentId].money = newMoney;
+        } catch (error) {
+            console.error('Error awarding XP to student', studentId, error);
+            alert('Failed to award XP to ' + currentData.name + '. See console for details.');
+        }
+    }
+    // Optionally, clear selections after awarding
+    checkboxes.forEach(cb => cb.checked = false);
+}
+
 // --- EVENT LISTENERS ---
 document.getElementById('login-button').addEventListener('click', () => {
     const email = document.getElementById('login-email').value;
@@ -251,3 +286,8 @@ document.getElementById('shop-table').addEventListener('click', e => {
         handleDeleteShopItem(target.dataset.id);
     }
 });
+
+// Award XP & Money buttons event listeners
+document.getElementById('award-xp-5').addEventListener('click', () => awardXpToSelected(5));
+document.getElementById('award-xp-10').addEventListener('click', () => awardXpToSelected(10));
+document.getElementById('award-xp-20').addEventListener('click', () => awardXpToSelected(20));
