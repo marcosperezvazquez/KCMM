@@ -227,6 +227,7 @@ async function awardXpToSelected(amount) {
         alert('Please select at least one student to award XP.');
         return;
     }
+    let awardedCount = 0;
     for (const checkbox of checkboxes) {
         const studentId = checkbox.dataset.id;
         const currentData = allStudentsData[studentId];
@@ -239,6 +240,7 @@ async function awardXpToSelected(amount) {
             // Update local cache so subsequent awards reflect new totals
             allStudentsData[studentId].xp = newXp;
             allStudentsData[studentId].money = newMoney;
+            awardedCount++;
         } catch (error) {
             console.error('Error awarding XP to student', studentId, error);
             alert('Failed to award XP to ' + currentData.name + '. See console for details.');
@@ -246,6 +248,12 @@ async function awardXpToSelected(amount) {
     }
     // Optionally, clear selections after awarding
     checkboxes.forEach(cb => cb.checked = false);
+
+    // Show a confirmation message if at least one student was awarded
+    if (awardedCount > 0) {
+        const plural = awardedCount === 1 ? '' : 's';
+        alert(`Successfully awarded +${amount} XP and $${amount} to ${awardedCount} student${plural}.`);
+    }
 }
 
 // --- EVENT LISTENERS ---
@@ -291,3 +299,10 @@ document.getElementById('shop-table').addEventListener('click', e => {
 document.getElementById('award-xp-5').addEventListener('click', () => awardXpToSelected(5));
 document.getElementById('award-xp-10').addEventListener('click', () => awardXpToSelected(10));
 document.getElementById('award-xp-20').addEventListener('click', () => awardXpToSelected(20));
+
+// Select all students for bulk operations
+document.getElementById('select-all-students').addEventListener('click', () => {
+    document.querySelectorAll('.student-select-checkbox').forEach(cb => {
+        cb.checked = true;
+    });
+});
