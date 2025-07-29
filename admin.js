@@ -302,7 +302,9 @@ document.getElementById('award-xp-20').addEventListener('click', () => awardXpTo
 
 // Select all students for bulk operations
 document.getElementById('select-all-students').addEventListener('click', () => {
-    document.querySelectorAll('.student-select-checkbox').forEach(cb => {
+    const checkboxes = document.querySelectorAll('.student-select-checkbox');
+    // Use Array.from to ensure compatibility in older browsers
+    Array.from(checkboxes).forEach(cb => {
         cb.checked = true;
     });
 });
