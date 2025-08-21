@@ -107,9 +107,14 @@ function loadShop() {
             const itemId = doc.id;
             const itemElement = document.createElement('div');
             itemElement.className = 'shop-item';
+            // CHANGE: Updated item HTML to include the description
+            const descriptionHTML = item.description ? `<div class="item-description">${item.description}</div>` : '';
             itemElement.innerHTML = `
-                <div><strong>${item.name}</strong></div>
                 <div>
+                    <strong>${item.name}</strong>
+                    ${descriptionHTML}
+                </div>
+                <div class="shop-item-actions">
                     <span>$${item.price.toFixed(2)}</span>
                     <button class="buy-button" data-id="${itemId}" data-name="${item.name}" data-price="${item.price}">Buy</button>
                 </div>
