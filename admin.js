@@ -130,10 +130,13 @@ function loadAdminShopManagement() {
             const item = doc.data();
             const itemId = doc.id;
             const row = shopTableBody.insertRow();
+            // CHANGE: Updated row to include description and data-description attribute for the edit button
             row.innerHTML = `
-                <td>${item.name}</td><td>$${item.price.toFixed(2)}</td>
+                <td>${item.name}</td>
+                <td>${item.description || ''}</td>
+                <td>$${item.price.toFixed(2)}</td>
                 <td>
-                    <button class="edit-item-button" data-id="${itemId}" data-name="${item.name}" data-price="${item.price}">Edit</button>
+                    <button class="edit-item-button" data-id="${itemId}" data-name="${item.name}" data-price="${item.price}" data-description="${item.description || ''}">Edit</button>
                     <button class="delete-item-button" data-id="${itemId}" style="background-color: #e74c3c;">Delete</button>
                 </td>
             `;
@@ -144,12 +147,16 @@ function loadAdminShopManagement() {
 async function handleSaveShopItem() {
     const name = document.getElementById('item-name').value;
     const price = parseFloat(document.getElementById('item-price').value);
+    // CHANGE: Get description value from the new input field
+    const description = document.getElementById('item-description').value;
     const editingId = document.getElementById('edit-item-id').value;
+
     if (!name || isNaN(price) || price < 0) {
         alert("Please enter a valid name and a non-negative price.");
         return;
     }
-    const itemData = { name, price };
+    // CHANGE: Added description to the item data object
+    const itemData = { name, price, description };
     try {
         if (editingId) {
             const itemDocRef = doc(db, "classroom-rewards/main-class/shop", editingId);
@@ -179,16 +186,21 @@ async function handleDeleteShopItem(itemId) {
     }
 }
 
-function populateShopFormForEdit(id, name, price) {
+// CHANGE: Added description to the function parameters
+function populateShopFormForEdit(id, name, price, description) {
     document.getElementById('edit-item-id').value = id;
     document.getElementById('item-name').value = name;
     document.getElementById('item-price').value = price;
+    // CHANGE: Populate the description field for editing
+    document.getElementById('item-description').value = description;
     document.getElementById('cancel-edit-button').style.display = 'inline-block';
 }
 
 function resetShopForm() {
     document.getElementById('edit-item-id').value = '';
     document.getElementById('item-name').value = '';
+    // CHANGE: Clear the description field on reset
+    document.getElementById('item-description').value = '';
     document.getElementById('item-price').value = '';
     document.getElementById('cancel-edit-button').style.display = 'none';
 }
@@ -215,12 +227,6 @@ function loadFullPurchaseHistory() {
 }
 
 // --- BULK AWARDING LOGIC ---
-/**
- * Awards a specified amount of XP (and the same amount of Money) to all students
- * that have their checkbox selected in the students table. XP and Money are
- * incremented in tandem because 1 XP = 1$ according to business logic.
- * @param {number} amount The amount of XP/Money to award (must be positive).
- */
 async function awardXpToSelected(amount) {
     const checkboxes = document.querySelectorAll('.student-select-checkbox:checked');
     if (!checkboxes.length) {
@@ -237,7 +243,6 @@ async function awardXpToSelected(amount) {
         const studentDocRef = doc(db, "classroom-rewards/main-class/students", studentId);
         try {
             await updateDoc(studentDocRef, { xp: newXp, money: newMoney });
-            // Update local cache so subsequent awards reflect new totals
             allStudentsData[studentId].xp = newXp;
             allStudentsData[studentId].money = newMoney;
             awardedCount++;
@@ -246,10 +251,7 @@ async function awardXpToSelected(amount) {
             alert('Failed to award XP to ' + currentData.name + '. See console for details.');
         }
     }
-    // Optionally, clear selections after awarding
     checkboxes.forEach(cb => cb.checked = false);
-
-    // Show a confirmation message if at least one student was awarded
     if (awardedCount > 0) {
         const plural = awardedCount === 1 ? '' : 's';
         alert(`Successfully awarded +${amount} XP and $${amount} to ${awardedCount} student${plural}.`);
@@ -288,22 +290,20 @@ document.getElementById('cancel-edit-button').addEventListener('click', resetSho
 document.getElementById('shop-table').addEventListener('click', e => {
     const target = e.target;
     if (target.classList.contains('edit-item-button')) {
-        populateShopFormForEdit(target.dataset.id, target.dataset.name, target.dataset.price);
+        // CHANGE: Pass the description from the data attribute to the edit function
+        populateShopFormForEdit(target.dataset.id, target.dataset.name, target.dataset.price, target.dataset.description);
     }
     if (target.classList.contains('delete-item-button')) {
         handleDeleteShopItem(target.dataset.id);
     }
 });
 
-// Award XP & Money buttons event listeners
 document.getElementById('award-xp-5').addEventListener('click', () => awardXpToSelected(5));
 document.getElementById('award-xp-10').addEventListener('click', () => awardXpToSelected(10));
 document.getElementById('award-xp-20').addEventListener('click', () => awardXpToSelected(20));
 
-// Select all students for bulk operations
 document.getElementById('select-all-students').addEventListener('click', () => {
     const checkboxes = document.querySelectorAll('.student-select-checkbox');
-    // Use Array.from to ensure compatibility in older browsers
     Array.from(checkboxes).forEach(cb => {
         cb.checked = true;
     });
