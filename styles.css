@@ -67,6 +67,21 @@ button:hover {
     display: none; /* Hidden by default, shown via JS */
 }
 
+/* CHANGE: Added banner styling */
+.banner {
+    background: linear-gradient(90deg, #FFD700, #F9A825); /* Gold to Orange gradient */
+    color: #4E342E; /* Dark brown text for contrast */
+    text-align: center;
+    padding: 15px 10px;
+    font-size: 2em;
+    font-weight: bold;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.6);
+    border: 2px solid #DAA520; /* Goldenrod border */
+    font-family: 'Arial Black', Gadget, sans-serif;
+}
+
 .user-info {
     background-color: #ecf0f1;
     padding: 15px;
@@ -95,6 +110,25 @@ button:hover {
     display: flex;
     justify-content: space-between;
     align-items: center;
+}
+
+/* CHANGE: Added styling for item description in the student shop */
+.item-description {
+    font-size: 0.9em;
+    color: #555;
+    margin-top: 4px;
+}
+
+/* CHANGE: Added styling for the buy button container */
+.shop-item-actions {
+    display: flex;
+    align-items: center;
+    margin-left: 15px; /* Space between description and buy button */
+}
+
+.shop-item-actions span {
+    margin-right: 10px;
+    font-weight: bold;
 }
 
 table {
