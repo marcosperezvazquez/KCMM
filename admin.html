@@ -58,6 +58,8 @@
                     <h3>Add/Edit Shop Item</h3>
                     <input type="hidden" id="edit-item-id">
                     <input type="text" id="item-name" placeholder="Item Name">
+                    <!-- CHANGE: Added item description input -->
+                    <input type="text" id="item-description" placeholder="Item Description (optional)">
                     <input type="number" id="item-price" placeholder="Item Price">
                     <button id="save-item-button">Save Item</button>
                     <button id="cancel-edit-button" style="display: none; background-color: #95a5a6;">Cancel Edit</button>
@@ -67,6 +69,8 @@
                         <thead>
                             <tr>
                                 <th>Item Name</th>
+                                <!-- CHANGE: Added Description column header -->
+                                <th>Description</th>
                                 <th>Price</th>
                                 <th>Actions</th>
                             </tr>
