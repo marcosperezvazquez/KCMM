@@ -30,24 +30,13 @@ const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 
 const TEACHER_EMAIL = "teacher@example.com";
 
-// --- CHANGE: Leveling System Configuration (mirrored from app.js) ---
-const levelThresholds = [
-    { level: 1, xp: 0 }, { level: 2, xp: 100 }, { level: 3, xp: 250 },
-    { level: 4, xp: 500 }, { level: 5, xp: 1000 }, { level: 6, xp: 2000 },
-    { level: 7, xp: 3500 }, { level: 8, xp: 5000 }, { level: 9, xp: 7500 },
-    { level: 10, xp: 10000 }
-];
-
+// --- CHANGE: Leveling System Configuration (100xp intervals) ---
 function calculateLevel(xp) {
-    let currentLevel = 1;
-    for (let i = levelThresholds.length - 1; i >= 0; i--) {
-        if (xp >= levelThresholds[i].xp) {
-            currentLevel = levelThresholds[i].level;
-            break;
-        }
-    }
-    return currentLevel;
+    if (xp < 0) return 1;
+    const level = Math.floor(xp / 100) + 1;
+    return level > 10 ? 10 : level; // Cap at level 10
 }
+
 
 // --- AUTHENTICATION LOGIC ---
 onAuthStateChanged(auth, user => {
@@ -90,7 +79,6 @@ function loadAllStudents() {
             const studentId = doc.id;
             allStudentsData[studentId] = student;
             const row = studentsTableBody.insertRow();
-            // CHANGE: Added student level to the table row
             row.innerHTML = `
                 <td><input type="checkbox" class="student-select-checkbox" data-id="${studentId}"></td>
                 <td>${student.name}</td><td>${student.email}</td>
