@@ -32,30 +32,20 @@ const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 const TEACHER_EMAIL = "teacher@example.com";
 let studentDataUnsubscribe = null;
 
-// --- CHANGE: Leveling System Configuration ---
-const levelThresholds = [
-    { level: 1, xp: 0 },
-    { level: 2, xp: 100 },
-    { level: 3, xp: 250 },
-    { level: 4, xp: 500 },
-    { level: 5, xp: 1000 },
-    { level: 6, xp: 2000 },
-    { level: 7, xp: 3500 },
-    { level: 8, xp: 5000 },
-    { level: 9, xp: 7500 },
-    { level: 10, xp: 10000 }
-];
+// --- CHANGE: Leveling System Configuration (100xp intervals) ---
+const levelThresholds = Array.from({ length: 10 }, (_, i) => ({
+    level: i + 1,
+    xp: i * 100
+}));
 
 function calculateLevel(xp) {
-    let currentLevel = 1;
-    for (let i = levelThresholds.length - 1; i >= 0; i--) {
-        if (xp >= levelThresholds[i].xp) {
-            currentLevel = levelThresholds[i].level;
-            break;
-        }
-    }
-    return currentLevel;
+    // With 100xp intervals, we can use a simple formula.
+    // Level 1: 0-99, Level 2: 100-199, etc.
+    if (xp < 0) return 1; // Should not happen, but good practice
+    const level = Math.floor(xp / 100) + 1;
+    return level > 10 ? 10 : level; // Cap at level 10
 }
+
 
 // --- AUTHENTICATION LOGIC ---
 onAuthStateChanged(auth, user => {
@@ -94,7 +84,6 @@ function initializeStudentDashboard(userId) {
             document.getElementById('student-name').textContent = data.name;
             document.getElementById('student-xp').textContent = data.xp;
             document.getElementById('student-money').textContent = data.money.toFixed(2);
-            // CHANGE: Calculate and display student's level
             document.getElementById('student-level').textContent = calculateLevel(data.xp);
         } else {
             console.log("Student document does not exist.");
@@ -242,7 +231,7 @@ document.getElementById('dashboard-view').addEventListener('click', (e) => {
     }
 });
 
-// --- CHANGE: Modal Logic ---
+// --- Modal Logic ---
 const modal = document.getElementById('level-up-modal');
 const infoButton = document.getElementById('level-info-button');
 const closeButton = document.querySelector('.close-button');
@@ -252,6 +241,7 @@ infoButton.onclick = function() {
     tableBody.innerHTML = '';
     levelThresholds.forEach(lt => {
         const row = tableBody.insertRow();
+        // For display, Level 1 needs 0 XP, Level 2 needs 100, etc.
         row.innerHTML = `<td>${lt.level}</td><td>${lt.xp}</td>`;
     });
     modal.style.display = "block";
