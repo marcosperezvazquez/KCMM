@@ -26,19 +26,35 @@ import {
 // --- INITIALIZATION ---
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-// Use initializeFirestore with experimentalForceLongPolling to mitigate 400 Unknown SID errors on some networks
 const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 
 const TEACHER_EMAIL = "teacher@example.com";
 
+// --- CHANGE: Leveling System Configuration (mirrored from app.js) ---
+const levelThresholds = [
+    { level: 1, xp: 0 }, { level: 2, xp: 100 }, { level: 3, xp: 250 },
+    { level: 4, xp: 500 }, { level: 5, xp: 1000 }, { level: 6, xp: 2000 },
+    { level: 7, xp: 3500 }, { level: 8, xp: 5000 }, { level: 9, xp: 7500 },
+    { level: 10, xp: 10000 }
+];
+
+function calculateLevel(xp) {
+    let currentLevel = 1;
+    for (let i = levelThresholds.length - 1; i >= 0; i--) {
+        if (xp >= levelThresholds[i].xp) {
+            currentLevel = levelThresholds[i].level;
+            break;
+        }
+    }
+    return currentLevel;
+}
+
 // --- AUTHENTICATION LOGIC ---
 onAuthStateChanged(auth, user => {
     if (user && user.email === TEACHER_EMAIL) {
-        // Teacher is logged in.
         showAdminPanel();
         initializeAdminDashboard();
     } else {
-        // No user or a non-teacher user is logged in.
         showAuthView();
     }
 });
@@ -74,9 +90,11 @@ function loadAllStudents() {
             const studentId = doc.id;
             allStudentsData[studentId] = student;
             const row = studentsTableBody.insertRow();
+            // CHANGE: Added student level to the table row
             row.innerHTML = `
                 <td><input type="checkbox" class="student-select-checkbox" data-id="${studentId}"></td>
                 <td>${student.name}</td><td>${student.email}</td>
+                <td>${calculateLevel(student.xp)}</td>
                 <td><input type="number" value="${student.xp}" class="student-xp-input" data-id="${studentId}"></td>
                 <td><input type="number" value="${student.money}" step="0.01" class="student-money-input" data-id="${studentId}"></td>
                 <td>
@@ -130,7 +148,6 @@ function loadAdminShopManagement() {
             const item = doc.data();
             const itemId = doc.id;
             const row = shopTableBody.insertRow();
-            // CHANGE: Updated row to include description and data-description attribute for the edit button
             row.innerHTML = `
                 <td>${item.name}</td>
                 <td>${item.description || ''}</td>
@@ -147,7 +164,6 @@ function loadAdminShopManagement() {
 async function handleSaveShopItem() {
     const name = document.getElementById('item-name').value;
     const price = parseFloat(document.getElementById('item-price').value);
-    // CHANGE: Get description value from the new input field
     const description = document.getElementById('item-description').value;
     const editingId = document.getElementById('edit-item-id').value;
 
@@ -155,7 +171,6 @@ async function handleSaveShopItem() {
         alert("Please enter a valid name and a non-negative price.");
         return;
     }
-    // CHANGE: Added description to the item data object
     const itemData = { name, price, description };
     try {
         if (editingId) {
@@ -186,12 +201,10 @@ async function handleDeleteShopItem(itemId) {
     }
 }
 
-// CHANGE: Added description to the function parameters
 function populateShopFormForEdit(id, name, price, description) {
     document.getElementById('edit-item-id').value = id;
     document.getElementById('item-name').value = name;
     document.getElementById('item-price').value = price;
-    // CHANGE: Populate the description field for editing
     document.getElementById('item-description').value = description;
     document.getElementById('cancel-edit-button').style.display = 'inline-block';
 }
@@ -199,7 +212,6 @@ function populateShopFormForEdit(id, name, price, description) {
 function resetShopForm() {
     document.getElementById('edit-item-id').value = '';
     document.getElementById('item-name').value = '';
-    // CHANGE: Clear the description field on reset
     document.getElementById('item-description').value = '';
     document.getElementById('item-price').value = '';
     document.getElementById('cancel-edit-button').style.display = 'none';
@@ -226,7 +238,6 @@ function loadFullPurchaseHistory() {
     });
 }
 
-// --- BULK AWARDING LOGIC ---
 async function awardXpToSelected(amount) {
     const checkboxes = document.querySelectorAll('.student-select-checkbox:checked');
     if (!checkboxes.length) {
@@ -290,7 +301,6 @@ document.getElementById('cancel-edit-button').addEventListener('click', resetSho
 document.getElementById('shop-table').addEventListener('click', e => {
     const target = e.target;
     if (target.classList.contains('edit-item-button')) {
-        // CHANGE: Pass the description from the data attribute to the edit function
         populateShopFormForEdit(target.dataset.id, target.dataset.name, target.dataset.price, target.dataset.description);
     }
     if (target.classList.contains('delete-item-button')) {
