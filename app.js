@@ -20,36 +20,53 @@ import {
     where,
     runTransaction,
     serverTimestamp,
-    orderBy
+    orderBy,
+    initializeFirestore
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-// Import initializeFirestore to enable long polling; this avoids 400 Unknown SID errors on some networks.
-import { initializeFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // --- INITIALIZATION ---
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-// Use initializeFirestore with experimentalForceLongPolling to avoid channel errors on some networks
 const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 
 const TEACHER_EMAIL = "teacher@example.com";
-
-// --- GLOBAL STATE ---
 let studentDataUnsubscribe = null;
+
+// --- CHANGE: Leveling System Configuration ---
+const levelThresholds = [
+    { level: 1, xp: 0 },
+    { level: 2, xp: 100 },
+    { level: 3, xp: 250 },
+    { level: 4, xp: 500 },
+    { level: 5, xp: 1000 },
+    { level: 6, xp: 2000 },
+    { level: 7, xp: 3500 },
+    { level: 8, xp: 5000 },
+    { level: 9, xp: 7500 },
+    { level: 10, xp: 10000 }
+];
+
+function calculateLevel(xp) {
+    let currentLevel = 1;
+    for (let i = levelThresholds.length - 1; i >= 0; i--) {
+        if (xp >= levelThresholds[i].xp) {
+            currentLevel = levelThresholds[i].level;
+            break;
+        }
+    }
+    return currentLevel;
+}
 
 // --- AUTHENTICATION LOGIC ---
 onAuthStateChanged(auth, user => {
     if (user) {
-        // If a teacher accidentally logs in here, log them out and redirect.
         if (user.email === TEACHER_EMAIL) {
             signOut(auth);
-            // This will re-trigger onAuthStateChanged, showing the login form.
             return;
         }
-        // A student is signed in.
         showDashboard();
         initializeStudentDashboard(user.uid);
     } else {
-        // User is signed out.
         showAuthView();
         if (studentDataUnsubscribe) {
             studentDataUnsubscribe();
@@ -77,13 +94,14 @@ function initializeStudentDashboard(userId) {
             document.getElementById('student-name').textContent = data.name;
             document.getElementById('student-xp').textContent = data.xp;
             document.getElementById('student-money').textContent = data.money.toFixed(2);
+            // CHANGE: Calculate and display student's level
+            document.getElementById('student-level').textContent = calculateLevel(data.xp);
         } else {
             console.log("Student document does not exist.");
             signOut(auth);
         }
     });
     loadShop();
-    // Load class ranking from the students collection. Default sort by XP.
     loadClassRanking(userId, 'xp');
     const rankingSelect = document.getElementById('ranking-criteria');
     if (rankingSelect) {
@@ -107,7 +125,6 @@ function loadShop() {
             const itemId = doc.id;
             const itemElement = document.createElement('div');
             itemElement.className = 'shop-item';
-            // CHANGE: Updated item HTML to include the description
             const descriptionHTML = item.description ? `<div class="item-description">${item.description}</div>` : '';
             itemElement.innerHTML = `
                 <div>
@@ -155,29 +172,6 @@ async function handlePurchase(itemId, itemName, itemPrice) {
     }
 }
 
-function loadStudentPurchaseHistory(userId) {
-    const historyTableBody = document.querySelector("#purchase-history-table tbody");
-    const q = query(
-        collection(db, "classroom-rewards/main-class/purchase_history"),
-        where("studentId", "==", userId),
-        orderBy("timestamp", "desc")
-    );
-    onSnapshot(q, (snapshot) => {
-        historyTableBody.innerHTML = "";
-        snapshot.forEach(doc => {
-            const purchase = doc.data();
-            const date = purchase.timestamp? purchase.timestamp.toDate().toLocaleDateString() : 'N/A';
-            const row = historyTableBody.insertRow();
-            row.innerHTML = `<td>${purchase.itemName}</td><td>$${purchase.cost.toFixed(2)}</td><td>${date}</td>`;
-        });
-    }, (error) => {
-        // This error handler is important for the index creation.
-        console.error("Error fetching purchase history: ", error);
-        historyTableBody.innerHTML = `<tr><td colspan="3">Could not load purchase history. A database index might be required.</td></tr>`;
-    });
-}
-
-// Load and display class ranking based on all students. Sort by XP or money.
 function loadClassRanking(userId, criteria = 'xp') {
     const tableBody = document.querySelector('#ranking-table tbody');
     if (!tableBody) return;
@@ -190,7 +184,6 @@ function loadClassRanking(userId, criteria = 'xp') {
         snapshot.forEach((docSnap) => {
             const student = docSnap.data();
             const row = tableBody.insertRow();
-            // Highlight current student's row
             if (docSnap.id === userId) {
                 row.style.fontWeight = 'bold';
                 row.style.backgroundColor = '#dfeaf4';
@@ -248,3 +241,28 @@ document.getElementById('dashboard-view').addEventListener('click', (e) => {
         handlePurchase(button.dataset.id, button.dataset.name, button.dataset.price);
     }
 });
+
+// --- CHANGE: Modal Logic ---
+const modal = document.getElementById('level-up-modal');
+const infoButton = document.getElementById('level-info-button');
+const closeButton = document.querySelector('.close-button');
+
+infoButton.onclick = function() {
+    const tableBody = document.querySelector('#level-up-table tbody');
+    tableBody.innerHTML = '';
+    levelThresholds.forEach(lt => {
+        const row = tableBody.insertRow();
+        row.innerHTML = `<td>${lt.level}</td><td>${lt.xp}</td>`;
+    });
+    modal.style.display = "block";
+}
+
+closeButton.onclick = function() {
+    modal.style.display = "none";
+}
+
+window.onclick = function(event) {
+    if (event.target == modal) {
+        modal.style.display = "none";
+    }
+}
