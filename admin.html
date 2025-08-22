@@ -26,7 +26,6 @@
 
             <section>
                 <h2>Student Management</h2>
-                <!-- Award controls: select students via checkboxes and award XP (and money) in bulk -->
                 <div id="award-controls" style="margin-bottom: 10px;">
                     <button id="select-all-students" class="award-btn" style="margin-right: 10px;">Select All</button>
                     <span>Award XP & Money:</span>
@@ -41,6 +40,8 @@
                                 <th>Select</th>
                                 <th>Name</th>
                                 <th>Email</th>
+                                <!-- CHANGE: Added Level column -->
+                                <th>Level</th>
                                 <th>XP</th>
                                 <th>Money</th>
                                 <th>Actions</th>
@@ -58,7 +59,6 @@
                     <h3>Add/Edit Shop Item</h3>
                     <input type="hidden" id="edit-item-id">
                     <input type="text" id="item-name" placeholder="Item Name">
-                    <!-- CHANGE: Added item description input -->
                     <input type="text" id="item-description" placeholder="Item Description (optional)">
                     <input type="number" id="item-price" placeholder="Item Price">
                     <button id="save-item-button">Save Item</button>
@@ -69,7 +69,6 @@
                         <thead>
                             <tr>
                                 <th>Item Name</th>
-                                <!-- CHANGE: Added Description column header -->
                                 <th>Description</th>
                                 <th>Price</th>
                                 <th>Actions</th>
