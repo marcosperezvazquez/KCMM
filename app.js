@@ -11,7 +11,7 @@ import {
     signOut
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import {
-    getFirestore,
+    getFirestore, // CORRECTED: Using getFirestore
     doc,
     setDoc,
     onSnapshot,
@@ -21,14 +21,13 @@ import {
     where,
     runTransaction,
     serverTimestamp,
-    orderBy,
-    initializeFirestore
+    orderBy
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // --- INITIALIZATION ---
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = initializeFirestore(app, { experimentalForceLongPolling: true });
+const db = getFirestore(app); // CORRECTED: Reverted to standard getFirestore initialization
 
 const TEACHER_EMAIL = "teacher@example.com";
 let studentDataUnsubscribe = null;
@@ -81,7 +80,7 @@ function initializeStudentDashboard(userId) {
     studentDataUnsubscribe = onSnapshot(studentDocRef, (doc) => {
         if (doc.exists()) {
             const data = doc.data();
-            currentStudentData = data; // Store current data
+            currentStudentData = data;
             document.getElementById('student-name').textContent = data.name;
             document.getElementById('student-xp').textContent = data.xp;
             document.getElementById('student-money').textContent = data.money.toFixed(2);
@@ -123,20 +122,19 @@ function loadShop() {
     });
 }
 
+// CORRECTED: Rewrote purchase logic for stability
 async function handlePurchase(itemId, itemName, itemPrice) {
     const price = parseFloat(itemPrice);
+    const user = auth.currentUser;
+    if (!user) return;
+
     if (currentStudentData.money < price) {
         alert("You don't have enough money to buy this item.");
         return;
     }
 
-    const user = auth.currentUser;
-    if (!user) return;
-
     const studentDocRef = doc(db, "classroom-rewards/main-class/students", user.uid);
-    const historyCollectionRef = collection(db, "classroom-rewards/main-class/purchase-history");
-    
-    // ADDED: Reference to the notifications collection
+    const newHistoryDocRef = doc(collection(db, "classroom-rewards/main-class/purchase-history"));
     const notificationsCollectionRef = collection(db, "classroom-rewards/main-class/notifications");
 
     try {
@@ -146,11 +144,14 @@ async function handlePurchase(itemId, itemName, itemPrice) {
                 throw "Student document does not exist!";
             }
 
-            const newMoney = studentDoc.data().money - price;
-            transaction.update(studentDocRef, { money: newMoney });
+            const currentMoney = studentDoc.data().money;
+            if (currentMoney < price) {
+                throw "Insufficient funds.";
+            }
 
-            const historyDocRef = doc(historyCollectionRef);
-            transaction.set(historyDocRef, {
+            const newMoney = currentMoney - price;
+            transaction.update(studentDocRef, { money: newMoney });
+            transaction.set(newHistoryDocRef, {
                 studentId: user.uid,
                 itemName: itemName,
                 itemPrice: price,
@@ -158,20 +159,23 @@ async function handlePurchase(itemId, itemName, itemPrice) {
             });
         });
 
-        // ADDED: Create a notification for the teacher on successful purchase
         await addDoc(notificationsCollectionRef, {
             studentName: currentStudentData.name,
             itemName: itemName,
             itemPrice: price,
             timestamp: serverTimestamp(),
-            read: false // 'read' flag for the teacher to clear notifications
+            read: false
         });
 
         console.log("Purchase successful and notification sent.");
 
     } catch (error) {
         console.error("Transaction failed: ", error);
-        alert("Purchase failed. Please try again.");
+        if (error === "Insufficient funds.") {
+            alert("You don't have enough money to buy this item.");
+        } else {
+            alert("Purchase failed. Please try again.");
+        }
     }
 }
 
@@ -186,7 +190,6 @@ function loadClassRanking(currentUserId, criteria) {
             students.push({ id: doc.id, ...doc.data() });
         });
 
-        // Sort in memory instead of complex query
         students.sort((a, b) => b[criteria] - a[criteria]);
 
         rankingTableBody.innerHTML = "";
