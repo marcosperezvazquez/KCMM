@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Classroom Rewards</title>
-    <!-- CHANGE: Added Font Awesome for the info icon -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -32,23 +31,38 @@
         </div>
 
         <div id="dashboard-view" class="dashboard">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h1>Welcome, <span id="student-name"></span>!</h1>
+            <div class="banner">
+                <h2>Welcome, <span id="student-name"></span>!</h2>
+                
+                <!-- REDESIGNED: Student Stats Display -->
+                <div class="stats-container">
+                    <div class="stat-item">
+                        <div class="level-badge">
+                            <span id="student-level">1</span>
+                        </div>
+                        <div class="stat-label-container">
+                            <span class="stat-label">Level</span>
+                            <i id="level-info-button" class="fas fa-info-circle" title="View Level Info"></i>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon-xp">XP</div>
+                        <span class="stat-value" id="student-xp">0</span>
+                        <span class="stat-label">Experience</span>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon-money">$</div>
+                        <span class="stat-value" id="student-money">0.00</span>
+                        <span class="stat-label">Money</span>
+                    </div>
+                </div>
                 <button id="logout-button" class="logout-button">Logout</button>
-            </div>
-            
-            <div class="banner">$KANG CHIAO MONEY$</div>
-
-            <div class="user-info">
-                <div>Level: <span id="student-level">1</span> <i id="level-info-button" class="fas fa-info-circle level-info-icon"></i></div>
-                <div>XP: <span id="student-xp">0</span></div>
-                <div>Money: $<span id="student-money">0</span></div>
             </div>
 
             <section>
-                <h2>Class Shop</h2>
-                <div id="shop-grid" class="shop-grid">
-                    <p>Loading shop items...</p>
+                <h2>Shop</h2>
+                <div id="shop-items-container">
+                    <!-- Shop items will be populated here -->
                 </div>
             </section>
 
