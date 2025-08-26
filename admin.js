@@ -10,7 +10,7 @@ import {
     signOut
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import {
-    getFirestore, // CORRECTED: Using getFirestore
+    getFirestore,
     doc,
     onSnapshot,
     collection,
@@ -19,17 +19,19 @@ import {
     updateDoc,
     deleteDoc,
     serverTimestamp,
-    orderBy
+    orderBy,
+    initializeFirestore // RESTORED: Using original initialization method
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // --- INITIALIZATION ---
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app); // CORRECTED: Reverted to standard getFirestore initialization
+// RESTORED: Using the original, working database initialization
+const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 
 const TEACHER_EMAIL = "teacher@example.com";
 
-// --- Leveling System Configuration (100xp intervals) ---
+// --- Leveling System Configuration ---
 function calculateLevel(xp) {
     if (xp < 0) return 1;
     const level = Math.floor(xp / 100) + 1;
@@ -65,10 +67,11 @@ function initializeAdminDashboard() {
     loadAllStudents();
     loadAdminShopManagement();
     loadFullPurchaseHistory();
+    // ADDED: Load notifications
     loadNotifications();
 }
 
-// --- NOTIFICATIONS ---
+// --- ADDED: Notifications Feature ---
 function loadNotifications() {
     const notificationsRef = collection(db, "classroom-rewards/main-class/notifications");
     const q = query(notificationsRef, orderBy("timestamp", "desc"));
@@ -111,11 +114,12 @@ function loadNotifications() {
                     await updateDoc(docRef, { read: true });
                 }
             });
-        });
+        }, { once: true }); // Use once to avoid continuous listeners
     });
 }
 
-// --- STUDENT MANAGEMENT ---
+
+// --- STUDENT MANAGEMENT (Original working code) ---
 function loadAllStudents() {
     const studentsCollectionRef = collection(db, "classroom-rewards/main-class/students");
     const studentsTableBody = document.querySelector("#students-table tbody");
@@ -179,7 +183,7 @@ async function handleDeleteStudent(studentId, studentName) {
     }
 }
 
-// --- SHOP MANAGEMENT ---
+// --- SHOP MANAGEMENT (Original working code) ---
 let currentEditItemId = null;
 
 function loadAdminShopManagement() {
@@ -265,7 +269,7 @@ async function handleDeleteShopItem(itemId) {
     }
 }
 
-// --- PURCHASE HISTORY ---
+// --- PURCHASE HISTORY (Original working code) ---
 function loadFullPurchaseHistory() {
     const historyCollectionRef = collection(db, "classroom-rewards/main-class/purchase-history");
     const q = query(historyCollectionRef, orderBy("timestamp", "desc"));
