@@ -10,7 +10,7 @@ import {
     signOut
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import {
-    getFirestore,
+    getFirestore, // CORRECTED: Using getFirestore
     doc,
     onSnapshot,
     collection,
@@ -19,14 +19,13 @@ import {
     updateDoc,
     deleteDoc,
     serverTimestamp,
-    orderBy,
-    initializeFirestore
+    orderBy
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // --- INITIALIZATION ---
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = initializeFirestore(app, { experimentalForceLongPolling: true });
+const db = getFirestore(app); // CORRECTED: Reverted to standard getFirestore initialization
 
 const TEACHER_EMAIL = "teacher@example.com";
 
@@ -66,15 +65,15 @@ function initializeAdminDashboard() {
     loadAllStudents();
     loadAdminShopManagement();
     loadFullPurchaseHistory();
-    loadNotifications(); // ADDED: Load purchase notifications
+    loadNotifications();
 }
 
-// ADDED: Function to load and display purchase notifications
+// --- NOTIFICATIONS ---
 function loadNotifications() {
     const notificationsRef = collection(db, "classroom-rewards/main-class/notifications");
     const q = query(notificationsRef, orderBy("timestamp", "desc"));
 
-    let snapshotListener = onSnapshot(q, (snapshot) => {
+    onSnapshot(q, (snapshot) => {
         const notificationsList = document.getElementById("notifications-list");
         const notificationBadge = document.getElementById("notification-badge");
         if (!notificationsList || !notificationBadge) return;
@@ -102,7 +101,6 @@ function loadNotifications() {
         }
     });
 
-    // Mark notifications as read when the bell icon is clicked
     document.getElementById('notification-area').addEventListener('click', () => {
         const notificationsRef = collection(db, "classroom-rewards/main-class/notifications");
         const q = query(notificationsRef, orderBy("timestamp", "desc"));
@@ -117,7 +115,7 @@ function loadNotifications() {
     });
 }
 
-
+// --- STUDENT MANAGEMENT ---
 function loadAllStudents() {
     const studentsCollectionRef = collection(db, "classroom-rewards/main-class/students");
     const studentsTableBody = document.querySelector("#students-table tbody");
@@ -216,7 +214,6 @@ async function handleSaveShopItem() {
     }
 
     if (currentEditItemId) {
-        // Update existing item
         const itemDocRef = doc(db, "classroom-rewards/main-class/shop-items", currentEditItemId);
         try {
             await updateDoc(itemDocRef, { name, description, price });
@@ -225,7 +222,6 @@ async function handleSaveShopItem() {
             console.error("Error updating item: ", error);
         }
     } else {
-        // Add new item
         const shopCollectionRef = collection(db, "classroom-rewards/main-class/shop-items");
         try {
             await addDoc(shopCollectionRef, { name, description, price });
