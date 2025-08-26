@@ -20,18 +20,17 @@ import {
     deleteDoc,
     serverTimestamp,
     orderBy,
-    initializeFirestore // RESTORED: Using original initialization method
+    initializeFirestore
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // --- INITIALIZATION ---
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-// RESTORED: Using the original, working database initialization
 const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 
 const TEACHER_EMAIL = "teacher@example.com";
 
-// --- Leveling System Configuration ---
+// --- CHANGE: Leveling System Configuration (100xp intervals) ---
 function calculateLevel(xp) {
     if (xp < 0) return 1;
     const level = Math.floor(xp / 100) + 1;
@@ -67,59 +66,8 @@ function initializeAdminDashboard() {
     loadAllStudents();
     loadAdminShopManagement();
     loadFullPurchaseHistory();
-    // ADDED: Load notifications
-    loadNotifications();
 }
 
-// --- ADDED: Notifications Feature ---
-function loadNotifications() {
-    const notificationsRef = collection(db, "classroom-rewards/main-class/notifications");
-    const q = query(notificationsRef, orderBy("timestamp", "desc"));
-
-    onSnapshot(q, (snapshot) => {
-        const notificationsList = document.getElementById("notifications-list");
-        const notificationBadge = document.getElementById("notification-badge");
-        if (!notificationsList || !notificationBadge) return;
-
-        notificationsList.innerHTML = "";
-        let unreadCount = 0;
-
-        snapshot.forEach(doc => {
-            const notification = doc.data();
-            const li = document.createElement("li");
-            const date = notification.timestamp ? notification.timestamp.toDate().toLocaleString() : 'Just now';
-            li.innerHTML = `<strong>${notification.studentName}</strong> purchased <em>${notification.itemName}</em> for ${notification.itemPrice} coins. <span class="timestamp">${date}</span>`;
-            if (!notification.read) {
-                li.classList.add("unread");
-                unreadCount++;
-            }
-            notificationsList.appendChild(li);
-        });
-
-        if (unreadCount > 0) {
-            notificationBadge.textContent = unreadCount;
-            notificationBadge.style.display = "flex";
-        } else {
-            notificationBadge.style.display = "none";
-        }
-    });
-
-    document.getElementById('notification-area').addEventListener('click', () => {
-        const notificationsRef = collection(db, "classroom-rewards/main-class/notifications");
-        const q = query(notificationsRef, orderBy("timestamp", "desc"));
-        onSnapshot(q, (snapshot) => {
-            snapshot.docs.forEach(async (document) => {
-                if (!document.data().read) {
-                    const docRef = doc(db, "classroom-rewards/main-class/notifications", document.id);
-                    await updateDoc(docRef, { read: true });
-                }
-            });
-        }, { once: true }); // Use once to avoid continuous listeners
-    });
-}
-
-
-// --- STUDENT MANAGEMENT (Original working code) ---
 function loadAllStudents() {
     const studentsCollectionRef = collection(db, "classroom-rewards/main-class/students");
     const studentsTableBody = document.querySelector("#students-table tbody");
@@ -151,56 +99,50 @@ async function handleStudentUpdate(studentId) {
     const moneyInput = document.querySelector(`.student-money-input[data-id="${studentId}"]`);
     const newXp = parseInt(xpInput.value, 10);
     const newMoney = parseFloat(moneyInput.value);
-
     if (isNaN(newXp) || isNaN(newMoney)) {
         alert("Invalid input. Please enter valid numbers for XP and Money.");
         return;
     }
-
     const studentDocRef = doc(db, "classroom-rewards/main-class/students", studentId);
     try {
-        await updateDoc(studentDocRef, {
-            xp: newXp,
-            money: newMoney
-        });
-        console.log("Student updated successfully.");
+        await updateDoc(studentDocRef, { xp: newXp, money: newMoney });
+        alert("Student updated successfully!");
     } catch (error) {
-        console.error("Error updating student: ", error);
-        alert("Failed to update student.");
+        console.error("Error updating student:", error);
+        alert("Failed to update student. See console for details.");
     }
 }
 
 async function handleDeleteStudent(studentId, studentName) {
-    if (confirm(`Are you sure you want to delete the student: ${studentName}? This action cannot be undone.`)) {
-        const studentDocRef = doc(db, "classroom-rewards/main-class/students", studentId);
-        try {
-            await deleteDoc(studentDocRef);
-            console.log("Student deleted successfully.");
-        } catch (error) {
-            console.error("Error deleting student: ", error);
-            alert("Failed to delete student.");
-        }
+    if (!confirm(`Are you sure you want to delete the student "${studentName}"? This will delete their data permanently.`)) {
+        return;
+    }
+    const studentDocRef = doc(db, "classroom-rewards/main-class/students", studentId);
+    try {
+        await deleteDoc(studentDocRef);
+        alert(`Successfully deleted ${studentName}'s data.`);
+    } catch (error) {
+        console.error("Error deleting student data:", error);
+        alert("Failed to delete student data. See console for details.");
     }
 }
 
-// --- SHOP MANAGEMENT (Original working code) ---
-let currentEditItemId = null;
-
 function loadAdminShopManagement() {
-    const shopCollectionRef = collection(db, "classroom-rewards/main-class/shop-items");
+    const shopCollectionRef = collection(db, "classroom-rewards/main-class/shop");
     const shopTableBody = document.querySelector("#shop-table tbody");
-    onSnapshot(shopCollectionRef, (snapshot) => {
+    onSnapshot(query(shopCollectionRef, orderBy("name")), (snapshot) => {
         shopTableBody.innerHTML = "";
         snapshot.forEach(doc => {
             const item = doc.data();
+            const itemId = doc.id;
             const row = shopTableBody.insertRow();
             row.innerHTML = `
                 <td>${item.name}</td>
-                <td>${item.description}</td>
-                <td>${item.price}</td>
+                <td>${item.description || ''}</td>
+                <td>$${item.price.toFixed(2)}</td>
                 <td>
-                    <button class="edit-item-button" data-id="${doc.id}" data-name="${item.name}" data-price="${item.price}" data-description="${item.description}">Edit</button>
-                    <button class="delete-item-button" data-id="${doc.id}" style="background-color: #e74c3c;">Delete</button>
+                    <button class="edit-item-button" data-id="${itemId}" data-name="${item.name}" data-price="${item.price}" data-description="${item.description || ''}">Edit</button>
+                    <button class="delete-item-button" data-id="${itemId}" style="background-color: #e74c3c;">Delete</button>
                 </td>
             `;
         });
@@ -209,124 +151,121 @@ function loadAdminShopManagement() {
 
 async function handleSaveShopItem() {
     const name = document.getElementById('item-name').value;
-    const description = document.getElementById('item-description').value;
     const price = parseFloat(document.getElementById('item-price').value);
+    const description = document.getElementById('item-description').value;
+    const editingId = document.getElementById('edit-item-id').value;
 
-    if (!name || !description || isNaN(price) || price < 0) {
-        alert("Please fill in all fields with valid data.");
+    if (!name || isNaN(price) || price < 0) {
+        alert("Please enter a valid name and a non-negative price.");
         return;
     }
-
-    if (currentEditItemId) {
-        const itemDocRef = doc(db, "classroom-rewards/main-class/shop-items", currentEditItemId);
-        try {
-            await updateDoc(itemDocRef, { name, description, price });
-            console.log("Item updated successfully.");
-        } catch (error) {
-            console.error("Error updating item: ", error);
+    const itemData = { name, price, description };
+    try {
+        if (editingId) {
+            const itemDocRef = doc(db, "classroom-rewards/main-class/shop", editingId);
+            await updateDoc(itemDocRef, itemData);
+            alert("Item updated successfully!");
+        } else {
+            const shopCollectionRef = collection(db, "classroom-rewards/main-class/shop");
+            await addDoc(shopCollectionRef, itemData);
+            alert("Item added successfully!");
         }
-    } else {
-        const shopCollectionRef = collection(db, "classroom-rewards/main-class/shop-items");
-        try {
-            await addDoc(shopCollectionRef, { name, description, price });
-            console.log("Item added successfully.");
-        } catch (error) {
-            console.error("Error adding item: ", error);
-        }
+        resetShopForm();
+    } catch (error) {
+        console.error("Error saving shop item:", error);
+        alert("Failed to save item. See console for details.");
     }
-    resetShopForm();
-}
-
-function populateShopFormForEdit(id, name, price, description) {
-    currentEditItemId = id;
-    document.getElementById('edit-item-id').value = id;
-    document.getElementById('item-name').value = name;
-    document.getElementById('item-description').value = description;
-    document.getElementById('item-price').value = price;
-    document.getElementById('save-item-button').textContent = "Update Item";
-    document.getElementById('cancel-edit-button').style.display = "inline-block";
-}
-
-function resetShopForm() {
-    currentEditItemId = null;
-    document.getElementById('edit-item-id').value = "";
-    document.getElementById('item-name').value = "";
-    document.getElementById('item-description').value = "";
-    document.getElementById('item-price').value = "";
-    document.getElementById('save-item-button').textContent = "Save Item";
-    document.getElementById('cancel-edit-button').style.display = "none";
 }
 
 async function handleDeleteShopItem(itemId) {
-    if (confirm("Are you sure you want to delete this shop item?")) {
-        const itemDocRef = doc(db, "classroom-rewards/main-class/shop-items", itemId);
-        try {
-            await deleteDoc(itemDocRef);
-            console.log("Item deleted successfully.");
-        } catch (error) {
-            console.error("Error deleting item: ", error);
-        }
+    if (!confirm("Are you sure you want to delete this item?")) return;
+    const itemDocRef = doc(db, "classroom-rewards/main-class/shop", itemId);
+    try {
+        await deleteDoc(itemDocRef);
+        alert("Item deleted successfully.");
+    } catch (error) {
+        console.error("Error deleting item:", error);
+        alert("Failed to delete item.");
     }
 }
 
-// --- PURCHASE HISTORY (Original working code) ---
-function loadFullPurchaseHistory() {
-    const historyCollectionRef = collection(db, "classroom-rewards/main-class/purchase-history");
-    const q = query(historyCollectionRef, orderBy("timestamp", "desc"));
-    const historyTableBody = document.querySelector("#full-purchase-history-table tbody");
+function populateShopFormForEdit(id, name, price, description) {
+    document.getElementById('edit-item-id').value = id;
+    document.getElementById('item-name').value = name;
+    document.getElementById('item-price').value = price;
+    document.getElementById('item-description').value = description;
+    document.getElementById('cancel-edit-button').style.display = 'inline-block';
+}
 
+function resetShopForm() {
+    document.getElementById('edit-item-id').value = '';
+    document.getElementById('item-name').value = '';
+    document.getElementById('item-description').value = '';
+    document.getElementById('item-price').value = '';
+    document.getElementById('cancel-edit-button').style.display = 'none';
+}
+
+function loadFullPurchaseHistory() {
+    const historyTableBody = document.querySelector("#full-purchase-history-table tbody");
+    const q = query(
+        collection(db, "classroom-rewards/main-class/purchase_history"),
+        orderBy("timestamp", "desc")
+    );
     onSnapshot(q, (snapshot) => {
         historyTableBody.innerHTML = "";
         snapshot.forEach(doc => {
-            const record = doc.data();
-            const studentName = allStudentsData[record.studentId] ? allStudentsData[record.studentId].name : 'Unknown';
-            const date = record.timestamp ? record.timestamp.toDate().toLocaleString() : 'N/A';
+            const purchase = doc.data();
+            const studentName = allStudentsData[purchase.studentId]?.name || purchase.studentName || 'Unknown Student';
+            const date = purchase.timestamp? purchase.timestamp.toDate().toLocaleString() : 'N/A';
             const row = historyTableBody.insertRow();
             row.innerHTML = `
-                <td>${studentName}</td>
-                <td>${record.itemName}</td>
-                <td>${record.itemPrice}</td>
-                <td>${date}</td>
+                <td>${studentName}</td><td>${purchase.itemName}</td>
+                <td>$${purchase.cost.toFixed(2)}</td><td>${date}</td>
             `;
         });
     });
 }
 
-// --- AWARDING XP ---
 async function awardXpToSelected(amount) {
     const checkboxes = document.querySelectorAll('.student-select-checkbox:checked');
-    if (checkboxes.length === 0) {
-        alert("Please select at least one student.");
+    if (!checkboxes.length) {
+        alert('Please select at least one student to award XP.');
         return;
     }
-
+    let awardedCount = 0;
     for (const checkbox of checkboxes) {
         const studentId = checkbox.dataset.id;
+        const currentData = allStudentsData[studentId];
+        if (!currentData) continue;
+        const newXp = (currentData.xp || 0) + amount;
+        const newMoney = (currentData.money || 0) + amount;
         const studentDocRef = doc(db, "classroom-rewards/main-class/students", studentId);
-        const currentXp = allStudentsData[studentId].xp;
         try {
-            await updateDoc(studentDocRef, {
-                xp: currentXp + amount
-            });
+            await updateDoc(studentDocRef, { xp: newXp, money: newMoney });
+            allStudentsData[studentId].xp = newXp;
+            allStudentsData[studentId].money = newMoney;
+            awardedCount++;
         } catch (error) {
-            console.error(`Error awarding XP to ${studentId}:`, error);
+            console.error('Error awarding XP to student', studentId, error);
+            alert('Failed to award XP to ' + currentData.name + '. See console for details.');
         }
     }
-    console.log(`Awarded ${amount} XP to ${checkboxes.length} students.`);
+    checkboxes.forEach(cb => cb.checked = false);
+    if (awardedCount > 0) {
+        const plural = awardedCount === 1 ? '' : 's';
+        alert(`Successfully awarded +${amount} XP and $${amount} to ${awardedCount} student${plural}.`);
+    }
 }
-
 
 // --- EVENT LISTENERS ---
 document.getElementById('login-button').addEventListener('click', () => {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
     const errorElem = document.getElementById('login-error');
-    if (email !== TEACHER_EMAIL) {
-        errorElem.textContent = "Only the designated teacher can log in here.";
-        return;
-    }
+    errorElem.textContent = '';
     signInWithEmailAndPassword(auth, email, password)
-        .catch(error => {
+   .catch(error => {
+            console.error("Login Error:", error);
             errorElem.textContent = error.message;
         });
 });
@@ -363,12 +302,7 @@ document.getElementById('award-xp-20').addEventListener('click', () => awardXpTo
 
 document.getElementById('select-all-students').addEventListener('click', () => {
     const checkboxes = document.querySelectorAll('.student-select-checkbox');
-    const isAllSelected = Array.from(checkboxes).every(cb => cb.checked);
-    checkboxes.forEach(cb => cb.checked = !isAllSelected);
-    document.getElementById('select-all-checkbox-header').checked = !isAllSelected;
-});
-
-document.getElementById('select-all-checkbox-header').addEventListener('change', (e) => {
-    const checkboxes = document.querySelectorAll('.student-select-checkbox');
-    checkboxes.forEach(cb => cb.checked = e.target.checked);
+    Array.from(checkboxes).forEach(cb => {
+        cb.checked = true;
+    });
 });

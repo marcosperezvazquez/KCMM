@@ -11,36 +11,37 @@ import {
     signOut
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import {
-    getFirestore, // CORRECTED: Using getFirestore
+    getFirestore,
     doc,
     setDoc,
     onSnapshot,
     collection,
-    addDoc,
     query,
     where,
     runTransaction,
     serverTimestamp,
-    orderBy
+    orderBy,
+    initializeFirestore
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
 // --- INITIALIZATION ---
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app); // CORRECTED: Reverted to standard getFirestore initialization
+const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 
 const TEACHER_EMAIL = "teacher@example.com";
 let studentDataUnsubscribe = null;
-let currentStudentData = {};
 
-// --- Leveling System Configuration (100xp intervals) ---
+// --- CHANGE: Leveling System Configuration (100xp intervals) ---
 const levelThresholds = Array.from({ length: 10 }, (_, i) => ({
     level: i + 1,
     xp: i * 100
 }));
 
 function calculateLevel(xp) {
-    if (xp < 0) return 1;
+    // With 100xp intervals, we can use a simple formula.
+    // Level 1: 0-99, Level 2: 100-199, etc.
+    if (xp < 0) return 1; // Should not happen, but good practice
     const level = Math.floor(xp / 100) + 1;
     return level > 10 ? 10 : level; // Cap at level 10
 }
@@ -80,7 +81,6 @@ function initializeStudentDashboard(userId) {
     studentDataUnsubscribe = onSnapshot(studentDocRef, (doc) => {
         if (doc.exists()) {
             const data = doc.data();
-            currentStudentData = data;
             document.getElementById('student-name').textContent = data.name;
             document.getElementById('student-xp').textContent = data.xp;
             document.getElementById('student-money').textContent = data.money.toFixed(2);
@@ -92,155 +92,125 @@ function initializeStudentDashboard(userId) {
     });
     loadShop();
     loadClassRanking(userId, 'xp');
-
-    document.getElementById('ranking-criteria').addEventListener('change', (e) => {
-        loadClassRanking(userId, e.target.value);
-    });
+    const rankingSelect = document.getElementById('ranking-criteria');
+    if (rankingSelect) {
+        rankingSelect.addEventListener('change', (e) => {
+            loadClassRanking(userId, e.target.value);
+        });
+    }
 }
 
 function loadShop() {
-    const shopCollectionRef = collection(db, "classroom-rewards/main-class/shop-items");
-    const shopContainer = document.getElementById('shop-items-container');
-    onSnapshot(shopCollectionRef, (snapshot) => {
-        shopContainer.innerHTML = "";
+    const shopCollectionRef = collection(db, "classroom-rewards/main-class/shop");
+    const shopGrid = document.getElementById('shop-grid');
+    onSnapshot(query(shopCollectionRef, orderBy("price")), (snapshot) => {
+        shopGrid.innerHTML = '';
+        if (snapshot.empty) {
+            shopGrid.innerHTML = '<p>The shop is currently empty.</p>';
+            return;
+        }
         snapshot.forEach(doc => {
             const item = doc.data();
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'shop-item';
-            itemDiv.innerHTML = `
-                <div class="shop-item-details">
+            const itemId = doc.id;
+            const itemElement = document.createElement('div');
+            itemElement.className = 'shop-item';
+            const descriptionHTML = item.description ? `<div class="item-description">${item.description}</div>` : '';
+            itemElement.innerHTML = `
+                <div>
                     <strong>${item.name}</strong>
-                    <p class="item-description">${item.description}</p>
+                    ${descriptionHTML}
                 </div>
                 <div class="shop-item-actions">
-                    <span>${item.price}</span>
-                    <button class="buy-button" data-id="${doc.id}" data-name="${item.name}" data-price="${item.price}">Buy</button>
+                    <span>$${item.price.toFixed(2)}</span>
+                    <button class="buy-button" data-id="${itemId}" data-name="${item.name}" data-price="${item.price}">Buy</button>
                 </div>
             `;
-            shopContainer.appendChild(itemDiv);
+            shopGrid.appendChild(itemElement);
         });
     });
 }
 
-// CORRECTED: Rewrote purchase logic for stability
 async function handlePurchase(itemId, itemName, itemPrice) {
-    const price = parseFloat(itemPrice);
     const user = auth.currentUser;
     if (!user) return;
-
-    if (currentStudentData.money < price) {
-        alert("You don't have enough money to buy this item.");
-        return;
-    }
-
+    const price = parseFloat(itemPrice);
     const studentDocRef = doc(db, "classroom-rewards/main-class/students", user.uid);
-    const newHistoryDocRef = doc(collection(db, "classroom-rewards/main-class/purchase-history"));
-    const notificationsCollectionRef = collection(db, "classroom-rewards/main-class/notifications");
-
     try {
         await runTransaction(db, async (transaction) => {
             const studentDoc = await transaction.get(studentDocRef);
-            if (!studentDoc.exists()) {
-                throw "Student document does not exist!";
-            }
-
+            if (!studentDoc.exists()) { throw "Student document does not exist!"; }
             const currentMoney = studentDoc.data().money;
-            if (currentMoney < price) {
-                throw "Insufficient funds.";
-            }
-
+            if (currentMoney < price) { throw "You do not have enough money for this item."; }
             const newMoney = currentMoney - price;
             transaction.update(studentDocRef, { money: newMoney });
-            transaction.set(newHistoryDocRef, {
+            const historyCollectionRef = collection(db, "classroom-rewards/main-class/purchase_history");
+            const newHistoryRef = doc(historyCollectionRef);
+            transaction.set(newHistoryRef, {
                 studentId: user.uid,
+                studentName: studentDoc.data().name,
+                itemId: itemId,
                 itemName: itemName,
-                itemPrice: price,
+                cost: price,
                 timestamp: serverTimestamp()
             });
         });
-
-        await addDoc(notificationsCollectionRef, {
-            studentName: currentStudentData.name,
-            itemName: itemName,
-            itemPrice: price,
-            timestamp: serverTimestamp(),
-            read: false
-        });
-
-        console.log("Purchase successful and notification sent.");
-
-    } catch (error) {
-        console.error("Transaction failed: ", error);
-        if (error === "Insufficient funds.") {
-            alert("You don't have enough money to buy this item.");
-        } else {
-            alert("Purchase failed. Please try again.");
-        }
+        alert(`Purchase successful! You bought: ${itemName}`);
+    } catch (e) {
+        console.error("Transaction failed: ", e);
+        alert("Purchase failed: " + e);
     }
 }
 
-
-function loadClassRanking(currentUserId, criteria) {
-    const studentsCollectionRef = collection(db, "classroom-rewards/main-class/students");
-    const rankingTableBody = document.querySelector("#ranking-table tbody");
-
-    onSnapshot(studentsCollectionRef, (snapshot) => {
-        let students = [];
-        snapshot.forEach(doc => {
-            students.push({ id: doc.id, ...doc.data() });
-        });
-
-        students.sort((a, b) => b[criteria] - a[criteria]);
-
-        rankingTableBody.innerHTML = "";
-        students.forEach((student, index) => {
-            const row = rankingTableBody.insertRow();
-            if (student.id === currentUserId) {
-                row.classList.add("current-user-rank");
+function loadClassRanking(userId, criteria = 'xp') {
+    const tableBody = document.querySelector('#ranking-table tbody');
+    if (!tableBody) return;
+    const studentsRef = collection(db, "classroom-rewards/main-class/students");
+    const orderField = criteria === 'money' ? 'money' : 'xp';
+    const q = query(studentsRef, orderBy(orderField, 'desc'));
+    onSnapshot(q, (snapshot) => {
+        tableBody.innerHTML = '';
+        let rank = 1;
+        snapshot.forEach((docSnap) => {
+            const student = docSnap.data();
+            const row = tableBody.insertRow();
+            if (docSnap.id === userId) {
+                row.style.fontWeight = 'bold';
+                row.style.backgroundColor = '#dfeaf4';
             }
-            row.innerHTML = `
-                <td>${index + 1}</td>
-                <td>${student.name}</td>
-                <td>${student.xp}</td>
-                <td>${student.money.toFixed(2)}</td>
-            `;
+            const moneyValue = typeof student.money === 'number' ? student.money.toFixed(2) : '0.00';
+            row.innerHTML = `<td>${rank}</td><td>${student.name || 'Unknown'}</td><td>${student.xp ?? 0}</td><td>$${moneyValue}</td>`;
+            rank++;
         });
     });
 }
-
 
 // --- EVENT LISTENERS ---
 document.getElementById('show-register').addEventListener('click', () => {
     document.getElementById('login-container').style.display = 'none';
     document.getElementById('register-container').style.display = 'block';
 });
-
 document.getElementById('show-login').addEventListener('click', () => {
-    document.getElementById('register-container').style.display = 'none';
     document.getElementById('login-container').style.display = 'block';
+    document.getElementById('register-container').style.display = 'none';
 });
-
 document.getElementById('login-button').addEventListener('click', () => {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
     const errorElem = document.getElementById('login-error');
+    errorElem.textContent = '';
     signInWithEmailAndPassword(auth, email, password)
-        .catch(error => {
+     .catch(error => {
+            console.error("Login Error:", error);
             errorElem.textContent = error.message;
         });
 });
-
 document.getElementById('register-button').addEventListener('click', async () => {
     const name = document.getElementById('register-name').value;
     const email = document.getElementById('register-email').value;
     const password = document.getElementById('register-password').value;
     const errorElem = document.getElementById('register-error');
-
-    if (!name) {
-        errorElem.textContent = "Please enter your name.";
-        return;
-    }
-
+    errorElem.textContent = '';
+    if (!name) { errorElem.textContent = "Please enter your name."; return; }
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
@@ -251,11 +221,9 @@ document.getElementById('register-button').addEventListener('click', async () =>
         errorElem.textContent = error.message;
     }
 });
-
 document.getElementById('logout-button').addEventListener('click', () => {
     signOut(auth);
 });
-
 document.getElementById('dashboard-view').addEventListener('click', (e) => {
     if (e.target.classList.contains('buy-button')) {
         const button = e.target;
@@ -273,6 +241,7 @@ infoButton.onclick = function() {
     tableBody.innerHTML = '';
     levelThresholds.forEach(lt => {
         const row = tableBody.insertRow();
+        // For display, Level 1 needs 0 XP, Level 2 needs 100, etc.
         row.innerHTML = `<td>${lt.level}</td><td>${lt.xp}</td>`;
     });
     modal.style.display = "block";
