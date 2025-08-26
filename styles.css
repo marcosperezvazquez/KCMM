@@ -63,58 +63,115 @@ button:hover {
 }
 
 /* --- Dashboard & Panels --- */
-.dashboard,.admin-panel {
+.dashboard, .admin-panel {
     display: none; /* Hidden by default, shown via JS */
 }
 
 .banner {
-    background: linear-gradient(90deg, #FFD700, #F9A825);
-    color: #4E342E;
+    background: linear-gradient(90deg, #3498db, #2980b9);
+    color: white;
     text-align: center;
-    padding: 15px 10px;
-    font-size: 2em;
-    font-weight: bold;
+    padding: 20px;
     border-radius: 8px;
     margin-bottom: 20px;
-    text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.6);
-    border: 2px solid #DAA520;
-    font-family: 'Arial Black', Gadget, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
-.user-info {
-    background-color: #ecf0f1;
-    padding: 15px;
-    border-radius: 5px;
-    margin-bottom: 20px;
+.banner h2 {
+    border-bottom: none;
+    color: white;
+    margin-top: 0;
+}
+
+/* --- ADDED: Student Dashboard Stats Redesign --- */
+.stats-container {
     display: flex;
     justify-content: space-around;
-    font-size: 1.2em;
+    align-items: flex-start;
+    width: 100%;
+    padding: 15px 0;
+    margin: 15px 0;
 }
 
-.user-info span {
+.stat-item {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 120px;
+}
+
+.stat-value {
+    font-size: 2em;
     font-weight: bold;
-    color: #2980b9;
+    color: white;
 }
 
-/* CHANGE: Added styling for the level info icon */
-.level-info-icon {
-    margin-left: 8px;
+.stat-label {
+    font-size: 0.9em;
+    text-transform: uppercase;
+    margin-top: 5px;
+}
+
+.level-badge {
+    width: 70px;
+    height: 70px;
+    background: #f1c40f;
+    color: #2c3e50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5em;
+    font-weight: bold;
+    border-radius: 50%;
+    border: 4px solid white;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    margin-bottom: 10px;
+}
+
+.stat-label-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#level-info-button {
     cursor: pointer;
-    color: #3498db;
-    transition: color 0.3s;
+    margin-left: 8px;
+    color: white;
+    transition: transform 0.2s;
+}
+#level-info-button:hover {
+    transform: scale(1.2);
 }
 
-.level-info-icon:hover {
-    color: #2980b9;
+.stat-icon-xp, .stat-icon-money {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: white;
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+    border: 4px solid rgba(255,255,255,0.5);
 }
 
-/* --- Shop & Tables --- */
-.shop-grid,.admin-table-container {
-    margin-top: 20px;
+.stat-icon-xp {
+    background-color: #2ecc71; /* Green for XP */
 }
 
+.stat-icon-money {
+    background-color: #e74c3c; /* Red for Money */
+}
+
+/* --- Shop Section --- */
 .shop-item {
-    border: 1px solid #ddd;
+    background-color: #ecf0f1;
     border-radius: 5px;
     padding: 15px;
     margin-bottom: 10px;
@@ -140,6 +197,7 @@ button:hover {
     font-weight: bold;
 }
 
+/* --- Tables --- */
 table {
     width: 100%;
     border-collapse: collapse;
@@ -161,6 +219,12 @@ tr:nth-child(even) {
     background-color: #f2f2f2;
 }
 
+.current-user-rank {
+    background-color: #f1c40f !important;
+    font-weight: bold;
+}
+
+/* --- General & Utility --- */
 .error-message {
     color: #e74c3c;
     font-weight: bold;
@@ -169,22 +233,29 @@ tr:nth-child(even) {
 
 .logout-button {
     background-color: #e74c3c;
+    margin-top: 15px;
 }
 
 .logout-button:hover {
     background-color: #c0392b;
 }
 
-/* CHANGE: Added Modal Styling */
+.admin-table-container {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* --- Modal Styles --- */
 .modal {
+    display: none;
     position: fixed;
-    z-index: 1000;
+    z-index: 1;
     left: 0;
     top: 0;
     width: 100%;
     height: 100%;
     overflow: auto;
-    background-color: rgba(0,0,0,0.5);
+    background-color: rgba(0,0,0,0.4);
 }
 
 .modal-content {
@@ -195,7 +266,6 @@ tr:nth-child(even) {
     width: 80%;
     max-width: 500px;
     border-radius: 8px;
-    position: relative;
 }
 
 .close-button {
@@ -210,4 +280,71 @@ tr:nth-child(even) {
     color: black;
     text-decoration: none;
     cursor: pointer;
+}
+
+/* --- ADDED: Notification Styles (for admin.html) --- */
+.header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+}
+
+#notification-area {
+    position: absolute;
+    right: 150px; /* Adjust as needed */
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    font-size: 1.5em;
+    color: #7f8c8d;
+}
+
+#notification-badge {
+    position: absolute;
+    top: -5px;
+    right: -10px;
+    background-color: #e74c3c;
+    color: white;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    font-size: 12px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#notifications-section {
+    margin-top: 20px;
+}
+
+#notifications-list {
+    list-style-type: none;
+    padding: 0;
+    max-height: 250px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+#notifications-list li {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+}
+
+#notifications-list li:last-child {
+    border-bottom: none;
+}
+
+#notifications-list li.unread {
+    background-color: #ecf0f1;
+}
+
+#notifications-list .timestamp {
+    font-size: 0.8em;
+    color: #7f8c8d;
+    margin-left: 10px;
+    float: right;
 }
