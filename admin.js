@@ -1,5 +1,3 @@
---- START OF FILE admin.js ---
-
 // admin.js - For Teacher Portal (admin.html)
 
 // --- IMPORTS ---
