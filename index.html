@@ -1,3 +1,5 @@
+--- START OF FILE index.html ---
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -49,6 +51,24 @@
                 <h2>Class Shop</h2>
                 <div id="shop-grid" class="shop-grid">
                     <p>Loading shop items...</p>
+                </div>
+            </section>
+
+            <!-- CHANGE: New section for Black Marks Display -->
+            <section>
+                <h2>Your Black Marks</h2>
+                <div id="black-marks-display" class="admin-table-container">
+                    <p id="no-black-marks-message">You have no black marks. Keep up the good work!</p>
+                    <table id="black-marks-table" style="display: none;">
+                        <thead>
+                            <tr>
+                                <th>Type</th>
+                                <th>Date/Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
                 </div>
             </section>
 
