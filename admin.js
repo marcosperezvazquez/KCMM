@@ -18,9 +18,11 @@ import {
     query,
     updateDoc,
     deleteDoc,
-    // serverTimestamp, // REMOVED: serverTimestamp is causing the issue here
+    serverTimestamp, // serverTimestamp is needed for notifications
     orderBy,
+    where, // Needed for querying notifications
     arrayUnion,
+    writeBatch, // Needed to mark multiple notifications as read
     initializeFirestore
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -40,12 +42,15 @@ function calculateLevel(xp) {
 
 
 // --- AUTHENTICATION LOGIC ---
+let notificationsUnsubscribe = null;
+
 onAuthStateChanged(auth, user => {
     if (user && user.email === TEACHER_EMAIL) {
         showAdminPanel();
-        initializeAdminDashboard();
+        initializeAdminDashboard(user.uid);
     } else {
         showAuthView();
+        if (notificationsUnsubscribe) notificationsUnsubscribe();
     }
 });
 
@@ -62,11 +67,14 @@ function showAdminPanel() {
 
 // --- ADMIN DASHBOARD LOGIC ---
 let allStudentsData = {};
+let unreadNotifications = [];
 
-function initializeAdminDashboard() {
+function initializeAdminDashboard(teacherId) {
     loadAllStudents();
     loadAdminShopManagement();
     loadFullPurchaseHistory();
+    // CHANGE: Initialize notification listener
+    listenForNotifications(teacherId);
 }
 
 function loadAllStudents() {
@@ -258,7 +266,6 @@ async function awardXpToSelected(amount) {
     }
 }
 
-// CHANGE: Corrected function to award black marks
 async function awardBlackMarkToSelected() {
     const checkboxes = document.querySelectorAll('.student-select-checkbox:checked');
     if (!checkboxes.length) {
@@ -273,37 +280,100 @@ async function awardBlackMarkToSelected() {
     }
 
     let awardedCount = 0;
-    const markData = {
-        type: blackMarkType,
-        timestamp: new Date() // CHANGE: Use client-side Date object instead of serverTimestamp()
-    };
+    const batch = writeBatch(db); // Use a batch to perform multiple operations
+    const notificationsCollectionRef = collection(db, "notifications");
 
     for (const checkbox of checkboxes) {
         const studentId = checkbox.dataset.id;
         const currentData = allStudentsData[studentId];
         if (!currentData) continue;
 
+        const markData = {
+            type: blackMarkType,
+            timestamp: new Date()
+        };
+
         const studentDocRef = doc(db, "classroom-rewards/main-class/students", studentId);
-        try {
-            await updateDoc(studentDocRef, {
-                blackMarks: arrayUnion(markData)
-            });
-            // Update local data for immediate UI reflection (optional but good practice)
-            if (!allStudentsData[studentId].blackMarks) {
-                allStudentsData[studentId].blackMarks = [];
-            }
-            allStudentsData[studentId].blackMarks.push(markData);
-            awardedCount++;
-        } catch (error) {
-            console.error('Error awarding black mark to student', studentId, error);
-            alert('Failed to award black mark to ' + currentData.name + '. See console for details.');
+        batch.update(studentDocRef, { blackMarks: arrayUnion(markData) });
+
+        // CHANGE: Create notification document in the batch
+        const notificationDocRef = doc(notificationsCollectionRef);
+        batch.set(notificationDocRef, {
+            recipientId: studentId,
+            message: `You received a black mark: "${blackMarkType}".`,
+            timestamp: serverTimestamp(),
+            read: false,
+            type: 'black_mark'
+        });
+        
+        awardedCount++;
+    }
+
+    try {
+        await batch.commit(); // Commit all batched operations at once
+        checkboxes.forEach(cb => cb.checked = false);
+        if (awardedCount > 0) {
+            const plural = awardedCount === 1 ? '' : 's';
+            alert(`Successfully awarded "${blackMarkType}" black mark to ${awardedCount} student${plural}.`);
         }
+    } catch (error) {
+        console.error('Error awarding black mark and sending notifications:', error);
+        alert('Failed to award black mark. See console for details.');
     }
-    checkboxes.forEach(cb => cb.checked = false); // Deselect students
-    if (awardedCount > 0) {
-        const plural = awardedCount === 1 ? '' : 's';
-        alert(`Successfully awarded "${blackMarkType}" black mark to ${awardedCount} student${plural}.`);
-    }
+}
+
+// CHANGE: New Notification Functions
+function listenForNotifications(teacherId) {
+    const notificationsQuery = query(
+        collection(db, "notifications"),
+        where("recipientId", "==", teacherId),
+        orderBy("timestamp", "desc")
+    );
+
+    notificationsUnsubscribe = onSnapshot(notificationsQuery, (snapshot) => {
+        const panel = document.getElementById('notification-panel');
+        const badge = document.getElementById('notification-badge');
+        panel.innerHTML = '';
+        unreadNotifications = [];
+
+        if (snapshot.empty) {
+            panel.innerHTML = '<p>No new notifications.</p>';
+        } else {
+            snapshot.forEach(doc => {
+                const notification = doc.data();
+                const notificationId = doc.id;
+                if (!notification.read) {
+                    unreadNotifications.push(notificationId);
+                }
+                const item = document.createElement('div');
+                item.className = 'notification-item' + (notification.read ? '' : ' unread');
+                item.innerHTML = `
+                    ${notification.message}
+                    <small>${notification.timestamp ? notification.timestamp.toDate().toLocaleString() : ''}</small>
+                `;
+                panel.appendChild(item);
+            });
+        }
+
+        if (unreadNotifications.length > 0) {
+            badge.textContent = unreadNotifications.length;
+            badge.style.display = 'block';
+        } else {
+            badge.style.display = 'none';
+        }
+    });
+}
+
+async function markNotificationsAsRead() {
+    if (unreadNotifications.length === 0) return;
+
+    const batch = writeBatch(db);
+    unreadNotifications.forEach(id => {
+        const docRef = doc(db, "notifications", id);
+        batch.update(docRef, { read: true });
+    });
+    await batch.commit();
+    unreadNotifications = []; // Clear the local list
 }
 
 
@@ -350,7 +420,6 @@ document.getElementById('award-xp-5').addEventListener('click', () => awardXpToS
 document.getElementById('award-xp-10').addEventListener('click', () => awardXpToSelected(10));
 document.getElementById('award-xp-20').addEventListener('click', () => awardXpToSelected(20));
 
-// CHANGE: Event listener for awarding black marks
 document.getElementById('award-black-mark-button').addEventListener('click', awardBlackMarkToSelected);
 
 
@@ -359,4 +428,15 @@ document.getElementById('select-all-students').addEventListener('click', () => {
     Array.from(checkboxes).forEach(cb => {
         cb.checked = true;
     });
+});
+
+// CHANGE: New Notification Event Listener
+document.getElementById('notification-bell').addEventListener('click', () => {
+    const panel = document.getElementById('notification-panel');
+    const isVisible = panel.style.display === 'block';
+    panel.style.display = isVisible ? 'none' : 'block';
+    if (!isVisible && unreadNotifications.length > 0) {
+        // Mark as read when the panel is opened
+        markNotificationsAsRead();
+    }
 });
