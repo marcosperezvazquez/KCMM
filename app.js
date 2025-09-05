@@ -174,7 +174,7 @@ async function handlePurchase(itemId, itemName, itemPrice) {
     // A robust way without exposing all users is to use a Cloud Function trigger.
     // Here we'll just hardcode the teacher's UID since we can't query users by email on the client.
     // NOTE: Replace "TEACHER_USER_ID" with the actual UID from your Firebase Authentication console.
-    const teacherIdForNotification = "n89ueWvUszXjTj4kM3nIp2d3iBw2"; // IMPORTANT: Replace this placeholder!
+    const teacherIdForNotification = "YBrD9GULHMcBjDfZkjuRzdQ2gbz1"; // IMPORTANT: Replace this placeholder!
 
     const price = parseFloat(itemPrice);
     const studentDocRef = doc(db, "classroom-rewards/main-class/students", user.uid);
@@ -374,102 +374,4 @@ window.onclick = function(event) {
     if (event.target == modal) {
         modal.style.display = "none";
     }
-}```
-
-**IMPORTANT:** In `app.js`, you must replace the placeholder `"n89ueWvUszXjTj4kM3nIp2d3iBw2"` with the **actual User UID** of your `teacher@example.com` account. You can find this in the Firebase Console under **Authentication -> Users**.
-
----
-
-### **6. `rules_version = _2_.txt` (Add Security Rules for Notifications)**
-
-Finally, we'll add rules for the new `notifications` collection.
-
-```firestore
---- START OF FILE rules_version = _2_.txt ---
-
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    
-    // Helper functions for reusable security logic
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-    
-    function isTeacher() {
-      return isAuthenticated() && request.auth.token.email == "teacher@example.com";
-    }
-    
-    function isValidStudent() {
-      return isAuthenticated() && request.auth.token.email != "teacher@example.com";
-    }
-    
-    function isStudentMakingPurchase(studentId) {
-        return isValidStudent() && 
-               request.auth.uid == studentId &&
-               request.resource.data.keys().hasAll(['money']).size() == request.resource.data.keys().size() &&
-               request.resource.data.money < resource.data.money;
-    }
-
-    // Main classroom rewards collection
-    match /classroom-rewards/{projectId} {
-
-      match /invites/{inviteId} {
-        allow create: if isTeacher();
-        allow read, delete: if isAuthenticated();
-      }
-
-      match /students/{studentId} {
-        allow read: if isAuthenticated();
-        allow create: if (isValidStudent() && request.auth.uid == studentId) || isTeacher();
-        allow update: if isTeacher() || isStudentMakingPurchase(studentId);
-        allow delete: if isTeacher();
-      }
-      
-      match /shop/{itemId} {
-        allow read: if isAuthenticated();
-        allow write: if isTeacher();
-      }
-      
-      match /purchase_history/{purchaseId} {
-        allow read: if isTeacher();
-        allow create: if isValidStudent() && 
-          request.resource.data.studentId == request.auth.uid;
-        allow update, delete: if isTeacher();
-      }
-
-      match /rankings/{studentId} {
-        allow read: if isAuthenticated();
-        allow create: if (isValidStudent() && request.auth.uid == studentId) || isTeacher();
-        allow update: if (
-          (isValidStudent() && request.auth.uid == studentId &&
-            ( !("name" in request.resource.data) || request.resource.data.name == resource.data.name ) &&
-            ( !("xp" in request.resource.data) || request.resource.data.xp == resource.data.xp ) &&
-            request.resource.data.money < resource.data.money
-          )
-        ) || isTeacher();
-        allow delete: if isTeacher();
-      }
-    }
-
-    // CHANGE: New rules for the notifications collection
-    match /notifications/{notificationId} {
-      // Allow a user to read a notification if they are the recipient
-      allow read: if isAuthenticated() && request.auth.uid == resource.data.recipientId;
-
-      // Allow teachers to create notifications for students,
-      // and students to create notifications for the teacher.
-      allow create: if (isTeacher() && get(/databases/$(database)/documents/classroom-rewards/main-class/students/$(request.resource.data.recipientId)).data.email != "teacher@example.com") ||
-                     (isValidStudent() && get(/databases/$(database)/documents/users/$(request.resource.data.recipientId)).data.email == "teacher@example.com");
-
-      // Allow a user to update a notification only to mark it as read, and only if they are the recipient
-      allow update: if isAuthenticated() && 
-                       request.auth.uid == resource.data.recipientId &&
-                       request.resource.data.read == true &&
-                       request.resource.data.keys().hasOnly(['read']);
-                       
-      // Allow a user to delete their own notifications
-      allow delete: if isAuthenticated() && request.auth.uid == resource.data.recipientId;
-    }
-  }
 }
