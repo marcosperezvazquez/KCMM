@@ -1,3 +1,5 @@
+--- START OF FILE admin.html ---
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -77,6 +79,27 @@
                         <tbody>
                             </tbody>
                     </table>
+                </div>
+            </section>
+
+            <!-- CHANGE: New section for Black Mark Management -->
+            <section>
+                <h2>Black Mark Management</h2>
+                <div id="black-mark-controls" style="margin-bottom: 10px;">
+                    <label for="black-mark-type">Select Black Mark Type:</label>
+                    <select id="black-mark-type" style="padding: 8px; margin-right: 10px;">
+                        <option value="Failure to turn in HW">Failure to turn in HW</option>
+                        <option value="Late">Late</option>
+                        <option value="Not prepared for class">Not prepared for class</option>
+                        <option value="Interrupted class">Interrupted class</option>
+                        <option value="Off task">Off task</option>
+                        <option value="Misuse of a 3C device">Misuse of a 3C device</option>
+                        <option value="Eating in class">Eating in class</option>
+                        <option value="Academic dishonesty">Academic dishonesty</option>
+                        <option value="Conflict with others">Conflict with others</option>
+                        <option value="Disrespectful">Disrespectful</option>
+                    </select>
+                    <button id="award-black-mark-button" class="award-btn" style="background-color: #e74c3c;">Award Black Mark to Selected</button>
                 </div>
             </section>
 
