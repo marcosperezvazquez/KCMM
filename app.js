@@ -21,6 +21,8 @@ import {
     runTransaction,
     serverTimestamp,
     orderBy,
+    addDoc, // Needed for creating notifications
+    writeBatch, // Needed to mark notifications as read
     initializeFirestore
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -31,6 +33,10 @@ const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 
 const TEACHER_EMAIL = "teacher@example.com";
 let studentDataUnsubscribe = null;
+// CHANGE: Added for notifications
+let notificationsUnsubscribe = null;
+let unreadNotifications = [];
+let teacherId = null; // We'll discover and store the teacher's ID
 
 // --- CHANGE: Leveling System Configuration (100xp intervals) ---
 const levelThresholds = Array.from({ length: 10 }, (_, i) => ({
@@ -39,9 +45,7 @@ const levelThresholds = Array.from({ length: 10 }, (_, i) => ({
 }));
 
 function calculateLevel(xp) {
-    // With 100xp intervals, we can use a simple formula.
-    // Level 1: 0-99, Level 2: 100-199, etc.
-    if (xp < 0) return 1; // Should not happen, but good practice
+    if (xp < 0) return 1;
     const level = Math.floor(xp / 100) + 1;
     return level > 10 ? 10 : level; // Cap at level 10
 }
@@ -51,6 +55,7 @@ function calculateLevel(xp) {
 onAuthStateChanged(auth, user => {
     if (user) {
         if (user.email === TEACHER_EMAIL) {
+            teacherId = user.uid; // Store teacher's ID if they happen to log in here
             signOut(auth);
             return;
         }
@@ -58,9 +63,8 @@ onAuthStateChanged(auth, user => {
         initializeStudentDashboard(user.uid);
     } else {
         showAuthView();
-        if (studentDataUnsubscribe) {
-            studentDataUnsubscribe();
-        }
+        if (studentDataUnsubscribe) studentDataUnsubscribe();
+        if (notificationsUnsubscribe) notificationsUnsubscribe(); // Cleanup
     }
 });
 
@@ -85,7 +89,6 @@ function initializeStudentDashboard(userId) {
             document.getElementById('student-xp').textContent = data.xp;
             document.getElementById('student-money').textContent = data.money.toFixed(2);
             document.getElementById('student-level').textContent = calculateLevel(data.xp);
-            // CHANGE: Call function to display black marks
             displayBlackMarks(data.blackMarks);
         } else {
             console.log("Student document does not exist.");
@@ -94,6 +97,7 @@ function initializeStudentDashboard(userId) {
     });
     loadShop();
     loadClassRanking(userId, 'xp');
+    listenForNotifications(userId); // CHANGE: Listen for student's notifications
     const rankingSelect = document.getElementById('ranking-criteria');
     if (rankingSelect) {
         rankingSelect.addEventListener('change', (e) => {
@@ -102,13 +106,12 @@ function initializeStudentDashboard(userId) {
     }
 }
 
-// CHANGE: New function to display black marks
 function displayBlackMarks(blackMarks) {
     const blackMarksTableBody = document.querySelector("#black-marks-table tbody");
     const noBlackMarksMessage = document.getElementById('no-black-marks-message');
     const blackMarksTable = document.getElementById('black-marks-table');
 
-    blackMarksTableBody.innerHTML = ''; // Clear previous entries
+    blackMarksTableBody.innerHTML = '';
 
     if (!blackMarks || blackMarks.length === 0) {
         noBlackMarksMessage.style.display = 'block';
@@ -118,10 +121,9 @@ function displayBlackMarks(blackMarks) {
 
     noBlackMarksMessage.style.display = 'none';
     blackMarksTable.style.display = 'table';
-
-    // Sort black marks by timestamp in descending order (most recent first)
+    
     blackMarks.sort((a, b) => {
-        if (!a.timestamp || !b.timestamp) return 0; // Handle cases without timestamp
+        if (!a.timestamp || !b.timestamp) return 0;
         return b.timestamp.toMillis() - a.timestamp.toMillis();
     });
 
@@ -158,7 +160,7 @@ function loadShop() {
                     <button class="buy-button" data-id="${itemId}" data-name="${item.name}" data-price="${item.price}">Buy</button>
                 </div>
             `;
-            shopGrid.appendChild(itemElement); // Corrected: app.js was cut off here
+            shopGrid.appendChild(itemElement);
         });
     });
 }
@@ -166,8 +168,17 @@ function loadShop() {
 async function handlePurchase(itemId, itemName, itemPrice) {
     const user = auth.currentUser;
     if (!user) return;
+    
+    // Find teacher's UID for notifications. In a real app, this might be stored in a config doc.
+    // For now, we assume there's only one teacher, and their email is known.
+    // A robust way without exposing all users is to use a Cloud Function trigger.
+    // Here we'll just hardcode the teacher's UID since we can't query users by email on the client.
+    // NOTE: Replace "TEACHER_USER_ID" with the actual UID from your Firebase Authentication console.
+    const teacherIdForNotification = "n89ueWvUszXjTj4kM3nIp2d3iBw2"; // IMPORTANT: Replace this placeholder!
+
     const price = parseFloat(itemPrice);
     const studentDocRef = doc(db, "classroom-rewards/main-class/students", user.uid);
+    
     try {
         await runTransaction(db, async (transaction) => {
             const studentDoc = await transaction.get(studentDocRef);
@@ -176,6 +187,7 @@ async function handlePurchase(itemId, itemName, itemPrice) {
             if (currentMoney < price) { throw "You do not have enough money for this item."; }
             const newMoney = currentMoney - price;
             transaction.update(studentDocRef, { money: newMoney });
+            
             const historyCollectionRef = collection(db, "classroom-rewards/main-class/purchase_history");
             const newHistoryRef = doc(historyCollectionRef);
             transaction.set(newHistoryRef, {
@@ -185,6 +197,17 @@ async function handlePurchase(itemId, itemName, itemPrice) {
                 itemName: itemName,
                 cost: price,
                 timestamp: serverTimestamp()
+            });
+
+            // CHANGE: Create a notification for the teacher in the same transaction
+            const notificationsCollectionRef = collection(db, "notifications");
+            const newNotificationRef = doc(notificationsCollectionRef);
+            transaction.set(newNotificationRef, {
+                recipientId: teacherIdForNotification, // Send to the teacher
+                message: `${studentDoc.data().name} purchased "${itemName}".`,
+                timestamp: serverTimestamp(),
+                read: false,
+                type: 'purchase'
             });
         });
         alert(`Purchase successful! You bought: ${itemName}`);
@@ -217,6 +240,61 @@ function loadClassRanking(userId, criteria = 'xp') {
     });
 }
 
+// CHANGE: New Notification Functions
+function listenForNotifications(studentId) {
+    const notificationsQuery = query(
+        collection(db, "notifications"),
+        where("recipientId", "==", studentId),
+        orderBy("timestamp", "desc")
+    );
+
+    notificationsUnsubscribe = onSnapshot(notificationsQuery, (snapshot) => {
+        const panel = document.getElementById('notification-panel');
+        const badge = document.getElementById('notification-badge');
+        panel.innerHTML = '';
+        unreadNotifications = [];
+
+        if (snapshot.empty) {
+            panel.innerHTML = '<p>No new notifications.</p>';
+        } else {
+            snapshot.forEach(doc => {
+                const notification = doc.data();
+                const notificationId = doc.id;
+                if (!notification.read) {
+                    unreadNotifications.push(notificationId);
+                }
+                const item = document.createElement('div');
+                item.className = 'notification-item' + (notification.read ? '' : ' unread');
+                item.innerHTML = `
+                    ${notification.message}
+                    <small>${notification.timestamp ? notification.timestamp.toDate().toLocaleString() : ''}</small>
+                `;
+                panel.appendChild(item);
+            });
+        }
+
+        if (unreadNotifications.length > 0) {
+            badge.textContent = unreadNotifications.length;
+            badge.style.display = 'block';
+        } else {
+            badge.style.display = 'none';
+        }
+    });
+}
+
+async function markNotificationsAsRead() {
+    if (unreadNotifications.length === 0) return;
+
+    const batch = writeBatch(db);
+    unreadNotifications.forEach(id => {
+        const docRef = doc(db, "notifications", id);
+        batch.update(docRef, { read: true });
+    });
+    await batch.commit();
+    unreadNotifications = [];
+}
+
+
 // --- EVENT LISTENERS ---
 document.getElementById('show-register').addEventListener('click', () => {
     document.getElementById('login-container').style.display = 'none';
@@ -248,7 +326,6 @@ document.getElementById('register-button').addEventListener('click', async () =>
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
         const studentDocRef = doc(db, "classroom-rewards/main-class/students", user.uid);
-        // CHANGE: Initialize blackMarks as an empty array for new students
         await setDoc(studentDocRef, { name: name, email: email, xp: 0, money: 0, blackMarks: [] });
     } catch (error) {
         console.error("Registration Error:", error);
@@ -264,6 +341,15 @@ document.getElementById('dashboard-view').addEventListener('click', (e) => {
         handlePurchase(button.dataset.id, button.dataset.name, button.dataset.price);
     }
 });
+// CHANGE: New Notification Event Listener
+document.getElementById('notification-bell').addEventListener('click', () => {
+    const panel = document.getElementById('notification-panel');
+    const isVisible = panel.style.display === 'block';
+    panel.style.display = isVisible ? 'none' : 'block';
+    if (!isVisible && unreadNotifications.length > 0) {
+        markNotificationsAsRead();
+    }
+});
 
 // --- Modal Logic ---
 const modal = document.getElementById('level-up-modal');
@@ -275,7 +361,6 @@ infoButton.onclick = function() {
     tableBody.innerHTML = '';
     levelThresholds.forEach(lt => {
         const row = tableBody.insertRow();
-        // For display, Level 1 needs 0 XP, Level 2 needs 100, etc.
         row.innerHTML = `<td>${lt.level}</td><td>${lt.xp}</td>`;
     });
     modal.style.display = "block";
@@ -289,4 +374,102 @@ window.onclick = function(event) {
     if (event.target == modal) {
         modal.style.display = "none";
     }
+}```
+
+**IMPORTANT:** In `app.js`, you must replace the placeholder `"n89ueWvUszXjTj4kM3nIp2d3iBw2"` with the **actual User UID** of your `teacher@example.com` account. You can find this in the Firebase Console under **Authentication -> Users**.
+
+---
+
+### **6. `rules_version = _2_.txt` (Add Security Rules for Notifications)**
+
+Finally, we'll add rules for the new `notifications` collection.
+
+```firestore
+--- START OF FILE rules_version = _2_.txt ---
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions for reusable security logic
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isTeacher() {
+      return isAuthenticated() && request.auth.token.email == "teacher@example.com";
+    }
+    
+    function isValidStudent() {
+      return isAuthenticated() && request.auth.token.email != "teacher@example.com";
+    }
+    
+    function isStudentMakingPurchase(studentId) {
+        return isValidStudent() && 
+               request.auth.uid == studentId &&
+               request.resource.data.keys().hasAll(['money']).size() == request.resource.data.keys().size() &&
+               request.resource.data.money < resource.data.money;
+    }
+
+    // Main classroom rewards collection
+    match /classroom-rewards/{projectId} {
+
+      match /invites/{inviteId} {
+        allow create: if isTeacher();
+        allow read, delete: if isAuthenticated();
+      }
+
+      match /students/{studentId} {
+        allow read: if isAuthenticated();
+        allow create: if (isValidStudent() && request.auth.uid == studentId) || isTeacher();
+        allow update: if isTeacher() || isStudentMakingPurchase(studentId);
+        allow delete: if isTeacher();
+      }
+      
+      match /shop/{itemId} {
+        allow read: if isAuthenticated();
+        allow write: if isTeacher();
+      }
+      
+      match /purchase_history/{purchaseId} {
+        allow read: if isTeacher();
+        allow create: if isValidStudent() && 
+          request.resource.data.studentId == request.auth.uid;
+        allow update, delete: if isTeacher();
+      }
+
+      match /rankings/{studentId} {
+        allow read: if isAuthenticated();
+        allow create: if (isValidStudent() && request.auth.uid == studentId) || isTeacher();
+        allow update: if (
+          (isValidStudent() && request.auth.uid == studentId &&
+            ( !("name" in request.resource.data) || request.resource.data.name == resource.data.name ) &&
+            ( !("xp" in request.resource.data) || request.resource.data.xp == resource.data.xp ) &&
+            request.resource.data.money < resource.data.money
+          )
+        ) || isTeacher();
+        allow delete: if isTeacher();
+      }
+    }
+
+    // CHANGE: New rules for the notifications collection
+    match /notifications/{notificationId} {
+      // Allow a user to read a notification if they are the recipient
+      allow read: if isAuthenticated() && request.auth.uid == resource.data.recipientId;
+
+      // Allow teachers to create notifications for students,
+      // and students to create notifications for the teacher.
+      allow create: if (isTeacher() && get(/databases/$(database)/documents/classroom-rewards/main-class/students/$(request.resource.data.recipientId)).data.email != "teacher@example.com") ||
+                     (isValidStudent() && get(/databases/$(database)/documents/users/$(request.resource.data.recipientId)).data.email == "teacher@example.com");
+
+      // Allow a user to update a notification only to mark it as read, and only if they are the recipient
+      allow update: if isAuthenticated() && 
+                       request.auth.uid == resource.data.recipientId &&
+                       request.resource.data.read == true &&
+                       request.resource.data.keys().hasOnly(['read']);
+                       
+      // Allow a user to delete their own notifications
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.recipientId;
+    }
+  }
 }
