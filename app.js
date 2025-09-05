@@ -1,3 +1,5 @@
+--- START OF FILE app.js ---
+
 // app.js - For Student Portal (index.html)
 
 // --- IMPORTS ---
@@ -85,6 +87,8 @@ function initializeStudentDashboard(userId) {
             document.getElementById('student-xp').textContent = data.xp;
             document.getElementById('student-money').textContent = data.money.toFixed(2);
             document.getElementById('student-level').textContent = calculateLevel(data.xp);
+            // CHANGE: Call function to display black marks
+            displayBlackMarks(data.blackMarks);
         } else {
             console.log("Student document does not exist.");
             signOut(auth);
@@ -99,6 +103,37 @@ function initializeStudentDashboard(userId) {
         });
     }
 }
+
+// CHANGE: New function to display black marks
+function displayBlackMarks(blackMarks) {
+    const blackMarksTableBody = document.querySelector("#black-marks-table tbody");
+    const noBlackMarksMessage = document.getElementById('no-black-marks-message');
+    const blackMarksTable = document.getElementById('black-marks-table');
+
+    blackMarksTableBody.innerHTML = ''; // Clear previous entries
+
+    if (!blackMarks || blackMarks.length === 0) {
+        noBlackMarksMessage.style.display = 'block';
+        blackMarksTable.style.display = 'none';
+        return;
+    }
+
+    noBlackMarksMessage.style.display = 'none';
+    blackMarksTable.style.display = 'table';
+
+    // Sort black marks by timestamp in descending order (most recent first)
+    blackMarks.sort((a, b) => {
+        if (!a.timestamp || !b.timestamp) return 0; // Handle cases without timestamp
+        return b.timestamp.toMillis() - a.timestamp.toMillis();
+    });
+
+    blackMarks.forEach(mark => {
+        const row = blackMarksTableBody.insertRow();
+        const date = mark.timestamp ? mark.timestamp.toDate().toLocaleString() : 'N/A';
+        row.innerHTML = `<td>${mark.type}</td><td>${date}</td>`;
+    });
+}
+
 
 function loadShop() {
     const shopCollectionRef = collection(db, "classroom-rewards/main-class/shop");
@@ -125,7 +160,7 @@ function loadShop() {
                     <button class="buy-button" data-id="${itemId}" data-name="${item.name}" data-price="${item.price}">Buy</button>
                 </div>
             `;
-            shopGrid.appendChild(itemElement);
+            shopGrid.appendChild(itemElement); // Corrected: app.js was cut off here
         });
     });
 }
@@ -215,7 +250,8 @@ document.getElementById('register-button').addEventListener('click', async () =>
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
         const studentDocRef = doc(db, "classroom-rewards/main-class/students", user.uid);
-        await setDoc(studentDocRef, { name: name, email: email, xp: 0, money: 0 });
+        // CHANGE: Initialize blackMarks as an empty array for new students
+        await setDoc(studentDocRef, { name: name, email: email, xp: 0, money: 0, blackMarks: [] });
     } catch (error) {
         console.error("Registration Error:", error);
         errorElem.textContent = error.message;
