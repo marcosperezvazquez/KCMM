@@ -1,5 +1,3 @@
---- START OF FILE app.js ---
-
 // app.js - For Student Portal (index.html)
 
 // --- IMPORTS ---
