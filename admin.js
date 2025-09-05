@@ -31,7 +31,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 
-const TEACHER_EMAIL = "teacher@example.com";
+const TEACHER_EMAIL = "marcosperez@kcis.com.tw";
 
 // --- CHANGE: Leveling System Configuration (100xp intervals) ---
 function calculateLevel(xp) {
