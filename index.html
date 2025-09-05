@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Classroom Rewards</title>
-    <!-- CHANGE: Added Font Awesome for the info icon -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -32,9 +31,19 @@
         </div>
 
         <div id="dashboard-view" class="dashboard">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="header-bar">
                 <h1>Welcome, <span id="student-name"></span>!</h1>
-                <button id="logout-button" class="logout-button">Logout</button>
+                <div class="header-controls">
+                    <!-- CHANGE: New Notification Area -->
+                    <div class="notification-area">
+                        <i id="notification-bell" class="fas fa-bell"></i>
+                        <span id="notification-badge" class="badge" style="display: none;"></span>
+                        <div id="notification-panel" class="notification-panel">
+                            <!-- Notifications will be populated by JS -->
+                        </div>
+                    </div>
+                    <button id="logout-button" class="logout-button">Logout</button>
+                </div>
             </div>
             
             <div class="banner">$KANG CHIAO MONEY$</div>
@@ -52,7 +61,6 @@
                 </div>
             </section>
 
-            <!-- CHANGE: New section for Black Marks Display -->
             <section>
                 <h2>Your Black Marks</h2>
                 <div id="black-marks-display" class="admin-table-container">
