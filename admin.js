@@ -1,3 +1,5 @@
+--- START OF FILE admin.js ---
+
 // admin.js - For Teacher Portal (admin.html)
 
 // --- IMPORTS ---
@@ -20,6 +22,7 @@ import {
     deleteDoc,
     serverTimestamp,
     orderBy,
+    arrayUnion, // CHANGE: Added arrayUnion for adding black marks
     initializeFirestore
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -257,6 +260,55 @@ async function awardXpToSelected(amount) {
     }
 }
 
+// CHANGE: New function to award black marks
+async function awardBlackMarkToSelected() {
+    const checkboxes = document.querySelectorAll('.student-select-checkbox:checked');
+    if (!checkboxes.length) {
+        alert('Please select at least one student to award a black mark.');
+        return;
+    }
+
+    const blackMarkType = document.getElementById('black-mark-type').value;
+    if (!blackMarkType) {
+        alert('Please select a type of black mark.');
+        return;
+    }
+
+    let awardedCount = 0;
+    const markData = {
+        type: blackMarkType,
+        timestamp: serverTimestamp()
+    };
+
+    for (const checkbox of checkboxes) {
+        const studentId = checkbox.dataset.id;
+        const currentData = allStudentsData[studentId];
+        if (!currentData) continue;
+
+        const studentDocRef = doc(db, "classroom-rewards/main-class/students", studentId);
+        try {
+            await updateDoc(studentDocRef, {
+                blackMarks: arrayUnion(markData) // Use arrayUnion to add the new mark
+            });
+            // Update local data for immediate UI reflection (optional but good practice)
+            if (!allStudentsData[studentId].blackMarks) {
+                allStudentsData[studentId].blackMarks = [];
+            }
+            allStudentsData[studentId].blackMarks.push(markData);
+            awardedCount++;
+        } catch (error) {
+            console.error('Error awarding black mark to student', studentId, error);
+            alert('Failed to award black mark to ' + currentData.name + '. See console for details.');
+        }
+    }
+    checkboxes.forEach(cb => cb.checked = false); // Deselect students
+    if (awardedCount > 0) {
+        const plural = awardedCount === 1 ? '' : 's';
+        alert(`Successfully awarded "${blackMarkType}" black mark to ${awardedCount} student${plural}.`);
+    }
+}
+
+
 // --- EVENT LISTENERS ---
 document.getElementById('login-button').addEventListener('click', () => {
     const email = document.getElementById('login-email').value;
@@ -299,6 +351,10 @@ document.getElementById('shop-table').addEventListener('click', e => {
 document.getElementById('award-xp-5').addEventListener('click', () => awardXpToSelected(5));
 document.getElementById('award-xp-10').addEventListener('click', () => awardXpToSelected(10));
 document.getElementById('award-xp-20').addEventListener('click', () => awardXpToSelected(20));
+
+// CHANGE: Event listener for awarding black marks
+document.getElementById('award-black-mark-button').addEventListener('click', awardBlackMarkToSelected);
+
 
 document.getElementById('select-all-students').addEventListener('click', () => {
     const checkboxes = document.querySelectorAll('.student-select-checkbox');
