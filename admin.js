@@ -18,9 +18,9 @@ import {
     query,
     updateDoc,
     deleteDoc,
-    serverTimestamp,
+    // serverTimestamp, // REMOVED: serverTimestamp is causing the issue here
     orderBy,
-    arrayUnion, // CHANGE: Added arrayUnion for adding black marks
+    arrayUnion,
     initializeFirestore
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -258,7 +258,7 @@ async function awardXpToSelected(amount) {
     }
 }
 
-// CHANGE: New function to award black marks
+// CHANGE: Corrected function to award black marks
 async function awardBlackMarkToSelected() {
     const checkboxes = document.querySelectorAll('.student-select-checkbox:checked');
     if (!checkboxes.length) {
@@ -275,7 +275,7 @@ async function awardBlackMarkToSelected() {
     let awardedCount = 0;
     const markData = {
         type: blackMarkType,
-        timestamp: serverTimestamp()
+        timestamp: new Date() // CHANGE: Use client-side Date object instead of serverTimestamp()
     };
 
     for (const checkbox of checkboxes) {
@@ -286,7 +286,7 @@ async function awardBlackMarkToSelected() {
         const studentDocRef = doc(db, "classroom-rewards/main-class/students", studentId);
         try {
             await updateDoc(studentDocRef, {
-                blackMarks: arrayUnion(markData) // Use arrayUnion to add the new mark
+                blackMarks: arrayUnion(markData)
             });
             // Update local data for immediate UI reflection (optional but good practice)
             if (!allStudentsData[studentId].blackMarks) {
