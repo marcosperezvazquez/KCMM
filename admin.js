@@ -18,11 +18,12 @@ import {
     query,
     updateDoc,
     deleteDoc,
-    serverTimestamp, // serverTimestamp is needed for notifications
+    serverTimestamp,
     orderBy,
-    where, // Needed for querying notifications
+    where,
     arrayUnion,
-    writeBatch, // Needed to mark multiple notifications as read
+    writeBatch,
+    getDocs, // CHANGE: Added getDocs for clearing history
     initializeFirestore
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -33,7 +34,7 @@ const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 
 const TEACHER_EMAIL = "marcosperez@kcis.com.tw";
 
-// --- CHANGE: Leveling System Configuration (100xp intervals) ---
+// --- Leveling System Configuration (100xp intervals) ---
 function calculateLevel(xp) {
     if (xp < 0) return 1;
     const level = Math.floor(xp / 100) + 1;
@@ -73,7 +74,6 @@ function initializeAdminDashboard(teacherId) {
     loadAllStudents();
     loadAdminShopManagement();
     loadFullPurchaseHistory();
-    // CHANGE: Initialize notification listener
     listenForNotifications(teacherId);
 }
 
@@ -280,7 +280,7 @@ async function awardBlackMarkToSelected() {
     }
 
     let awardedCount = 0;
-    const batch = writeBatch(db); // Use a batch to perform multiple operations
+    const batch = writeBatch(db);
     const notificationsCollectionRef = collection(db, "notifications");
 
     for (const checkbox of checkboxes) {
@@ -296,7 +296,6 @@ async function awardBlackMarkToSelected() {
         const studentDocRef = doc(db, "classroom-rewards/main-class/students", studentId);
         batch.update(studentDocRef, { blackMarks: arrayUnion(markData) });
 
-        // CHANGE: Create notification document in the batch
         const notificationDocRef = doc(notificationsCollectionRef);
         batch.set(notificationDocRef, {
             recipientId: studentId,
@@ -310,7 +309,7 @@ async function awardBlackMarkToSelected() {
     }
 
     try {
-        await batch.commit(); // Commit all batched operations at once
+        await batch.commit();
         checkboxes.forEach(cb => cb.checked = false);
         if (awardedCount > 0) {
             const plural = awardedCount === 1 ? '' : 's';
@@ -322,7 +321,7 @@ async function awardBlackMarkToSelected() {
     }
 }
 
-// CHANGE: New Notification Functions
+// --- Notification Functions ---
 function listenForNotifications(teacherId) {
     const notificationsQuery = query(
         collection(db, "notifications"),
@@ -373,7 +372,65 @@ async function markNotificationsAsRead() {
         batch.update(docRef, { read: true });
     });
     await batch.commit();
-    unreadNotifications = []; // Clear the local list
+    unreadNotifications = [];
+}
+
+// CHANGE: New Function to clear history for a new semester
+async function handleClearHistory() {
+    const confirmation = confirm("ARE YOU SURE?\nThis will permanently delete ALL purchase history and clear ALL black marks for every student.\n\nThis action cannot be undone.");
+
+    if (!confirmation) {
+        alert("Operation cancelled.");
+        return;
+    }
+
+    alert("Starting the clearing process. This may take a moment...");
+
+    try {
+        // --- 1. Clear all black marks from students ---
+        const studentsCollectionRef = collection(db, "classroom-rewards/main-class/students");
+        const blackMarksBatch = writeBatch(db);
+        for (const studentId in allStudentsData) {
+            // We only want to clear for actual students, not the teacher document
+            if (allStudentsData[studentId].email !== TEACHER_EMAIL) {
+                const studentDocRef = doc(studentsCollectionRef, studentId);
+                blackMarksBatch.update(studentDocRef, { blackMarks: [] });
+            }
+        }
+        await blackMarksBatch.commit();
+        console.log("All student black marks have been cleared.");
+
+        // --- 2. Delete all documents from purchase_history ---
+        const historyCollectionRef = collection(db, "classroom-rewards/main-class/purchase_history");
+        const historySnapshot = await getDocs(historyCollectionRef);
+        
+        if (historySnapshot.empty) {
+            console.log("Purchase history is already empty.");
+        } else {
+            // Firestore batches have a 500 operation limit. We'll handle larger histories by creating multiple batches.
+            let deleteBatch = writeBatch(db);
+            let operationCount = 0;
+            for (const doc of historySnapshot.docs) {
+                deleteBatch.delete(doc.ref);
+                operationCount++;
+                if (operationCount === 499) {
+                    await deleteBatch.commit();
+                    deleteBatch = writeBatch(db); // Start a new batch
+                    operationCount = 0;
+                }
+            }
+            if (operationCount > 0) {
+                await deleteBatch.commit(); // Commit the final batch
+            }
+            console.log("All purchase history has been deleted.");
+        }
+
+        alert("SUCCESS: All purchase history and student black marks have been cleared.");
+        
+    } catch (error) {
+        console.error("Error clearing history:", error);
+        alert("An error occurred while clearing history. Check the console for details.");
+    }
 }
 
 
@@ -430,13 +487,14 @@ document.getElementById('select-all-students').addEventListener('click', () => {
     });
 });
 
-// CHANGE: New Notification Event Listener
 document.getElementById('notification-bell').addEventListener('click', () => {
     const panel = document.getElementById('notification-panel');
     const isVisible = panel.style.display === 'block';
     panel.style.display = isVisible ? 'none' : 'block';
     if (!isVisible && unreadNotifications.length > 0) {
-        // Mark as read when the panel is opened
         markNotificationsAsRead();
     }
 });
+
+// CHANGE: Add event listener for the new clear history button
+document.getElementById('clear-history-button').addEventListener('click', handleClearHistory);
