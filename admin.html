@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - Classroom Rewards</title>
-    <!-- CHANGE: Added Font Awesome for the notification icon -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -24,12 +23,10 @@
             <div class="header-bar">
                 <h1>Teacher Admin Panel</h1>
                 <div class="header-controls">
-                    <!-- CHANGE: New Notification Area -->
                     <div class="notification-area">
                         <i id="notification-bell" class="fas fa-bell"></i>
                         <span id="notification-badge" class="badge" style="display: none;"></span>
                         <div id="notification-panel" class="notification-panel">
-                            <!-- Notifications will be populated by JS -->
                         </div>
                     </div>
                     <button id="admin-logout-button" class="logout-button">Logout</button>
@@ -64,7 +61,6 @@
                 </div>
             </section>
             
-            <!-- CHANGE: Moved Black Mark Management to be right after Student Management -->
             <section>
                 <h2>Black Mark Management</h2>
                 <div id="black-mark-controls" style="margin-bottom: 10px;">
@@ -128,6 +124,13 @@
                             </tbody>
                     </table>
                 </div>
+            </section>
+
+            <!-- CHANGE: New Section for Semester Reset -->
+            <section>
+                <h2>Semester Reset</h2>
+                <p>This will permanently delete all purchase history and clear all black marks for every student. This is intended for the start of a new semester or year. This action cannot be undone.</p>
+                <button id="clear-history-button">Clear All Student History</button>
             </section>
 
         </div>
