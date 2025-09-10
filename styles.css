@@ -295,3 +295,13 @@ tr:nth-child(even) {
     text-align: center;
     color: #888;
 }
+#clear-history-button {
+    background-color: #e74c3c; /* Red color */
+    width: 100%;
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+#clear-history-button:hover {
+    background-color: #c0392b; /* Darker red on hover */
+}
