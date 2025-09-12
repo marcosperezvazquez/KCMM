@@ -21,8 +21,8 @@ import {
     runTransaction,
     serverTimestamp,
     orderBy,
-    addDoc,
-    writeBatch,
+    addDoc, // Needed for creating notifications
+    writeBatch, // Needed to mark notifications as read
     initializeFirestore
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -33,11 +33,12 @@ const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 
 const TEACHER_EMAIL = "marcosperez@kcis.com.tw";
 let studentDataUnsubscribe = null;
+// CHANGE: Added for notifications
 let notificationsUnsubscribe = null;
 let unreadNotifications = [];
-let teacherId = null;
+let teacherId = null; // We'll discover and store the teacher's ID
 
-// --- Leveling System Configuration (100xp intervals) ---
+// --- CHANGE: Leveling System Configuration (100xp intervals) ---
 const levelThresholds = Array.from({ length: 10 }, (_, i) => ({
     level: i + 1,
     xp: i * 100
@@ -54,7 +55,7 @@ function calculateLevel(xp) {
 onAuthStateChanged(auth, user => {
     if (user) {
         if (user.email === TEACHER_EMAIL) {
-            teacherId = user.uid;
+            teacherId = user.uid; // Store teacher's ID if they happen to log in here
             signOut(auth);
             return;
         }
@@ -63,7 +64,7 @@ onAuthStateChanged(auth, user => {
     } else {
         showAuthView();
         if (studentDataUnsubscribe) studentDataUnsubscribe();
-        if (notificationsUnsubscribe) notificationsUnsubscribe();
+        if (notificationsUnsubscribe) notificationsUnsubscribe(); // Cleanup
     }
 });
 
@@ -96,7 +97,7 @@ function initializeStudentDashboard(userId) {
     });
     loadShop();
     loadClassRanking(userId, 'xp');
-    listenForNotifications(userId);
+    listenForNotifications(userId); // CHANGE: Listen for student's notifications
     const rankingSelect = document.getElementById('ranking-criteria');
     if (rankingSelect) {
         rankingSelect.addEventListener('change', (e) => {
@@ -168,8 +169,12 @@ async function handlePurchase(itemId, itemName, itemPrice) {
     const user = auth.currentUser;
     if (!user) return;
     
-    // CHANGE: Replace the placeholder with your new teacher's User UID
-    const teacherIdForNotification = "hy6SKvz5WzUKK2NBjQSFnOzeOny2"; 
+    // Find teacher's UID for notifications. In a real app, this might be stored in a config doc.
+    // For now, we assume there's only one teacher, and their email is known.
+    // A robust way without exposing all users is to use a Cloud Function trigger.
+    // Here we'll just hardcode the teacher's UID since we can't query users by email on the client.
+    // NOTE: Replace "TEACHER_USER_ID" with the actual UID from your Firebase Authentication console.
+    const teacherIdForNotification = "YBrD9GULHMcBjDfZkjuRzdQ2gbz1"; // IMPORTANT: Replace this placeholder!
 
     const price = parseFloat(itemPrice);
     const studentDocRef = doc(db, "classroom-rewards/main-class/students", user.uid);
@@ -194,10 +199,11 @@ async function handlePurchase(itemId, itemName, itemPrice) {
                 timestamp: serverTimestamp()
             });
 
+            // CHANGE: Create a notification for the teacher in the same transaction
             const notificationsCollectionRef = collection(db, "notifications");
             const newNotificationRef = doc(notificationsCollectionRef);
             transaction.set(newNotificationRef, {
-                recipientId: teacherIdForNotification,
+                recipientId: teacherIdForNotification, // Send to the teacher
                 message: `${studentDoc.data().name} purchased "${itemName}".`,
                 timestamp: serverTimestamp(),
                 read: false,
@@ -234,7 +240,7 @@ function loadClassRanking(userId, criteria = 'xp') {
     });
 }
 
-// --- Notification Functions ---
+// CHANGE: New Notification Functions
 function listenForNotifications(studentId) {
     const notificationsQuery = query(
         collection(db, "notifications"),
@@ -335,6 +341,7 @@ document.getElementById('dashboard-view').addEventListener('click', (e) => {
         handlePurchase(button.dataset.id, button.dataset.name, button.dataset.price);
     }
 });
+// CHANGE: New Notification Event Listener
 document.getElementById('notification-bell').addEventListener('click', () => {
     const panel = document.getElementById('notification-panel');
     const isVisible = panel.style.display === 'block';
