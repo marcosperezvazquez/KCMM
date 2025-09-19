@@ -151,7 +151,6 @@ async function handleStudentUpdate(studentId) {
         console.error("Error updating student:", error);
         alert("Failed to update student. See console for details.");
     }
-}
 
 async function handleDeleteStudent(studentId, studentName) {
     if (!confirm(`Are you sure you want to delete the student "${studentName}"? This will delete their data permanently.`)) {
