@@ -375,3 +375,34 @@ window.onclick = function(event) {
         modal.style.display = "none";
     }
 }
+--- START OF FILE app.js ---
+
+// (Keep all code from the top of the file)
+// ...
+
+document.getElementById('register-button').addEventListener('click', async () => {
+    const name = document.getElementById('register-name').value;
+    const email = document.getElementById('register-email').value;
+    const password = document.getElementById('register-password').value;
+    const errorElem = document.getElementById('register-error');
+    errorElem.textContent = '';
+    if (!name) { errorElem.textContent = "Please enter your name."; return; }
+    try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        const studentDocRef = doc(db, "classroom-rewards/main-class/students", user.uid);
+        
+        // CHANGE: Initialize className for new students
+        await setDoc(studentDocRef, { 
+            name: name, 
+            email: email, 
+            xp: 0, 
+            money: 0, 
+            blackMarks: [],
+            className: "" // Default to an empty string
+        });
+    } catch (error) {
+        console.error("Registration Error:", error);
+        errorElem.textContent = error.message;
+    }
+});
