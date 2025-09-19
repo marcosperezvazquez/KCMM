@@ -44,7 +44,7 @@ function calculateLevel(xp) {
 
 // --- AUTHENTICATION LOGIC ---
 let notificationsUnsubscribe = null;
-let studentsUnsubscribe = null; // CHANGE: To manage the student listener
+let studentsUnsubscribe = null; // To manage the student listener
 
 onAuthStateChanged(auth, user => {
     if (user && user.email === TEACHER_EMAIL) {
@@ -53,22 +53,31 @@ onAuthStateChanged(auth, user => {
     } else {
         showAuthView();
         if (notificationsUnsubscribe) notificationsUnsubscribe();
-        if (studentsUnsubscribe) studentsUnsubscribe(); // CHANGE: Unsubscribe on logout
+        if (studentsUnsubscribe) studentsUnsubscribe(); // Unsubscribe on logout
     }
 });
 
-// --- (UI Toggling Functions remain the same) ---
-// ...
+// --- UI Toggling Functions ---
+function showAuthView() {
+    document.getElementById('auth-view').style.display = 'block';
+    document.getElementById('admin-panel-view').style.display = 'none';
+}
+
+function showAdminPanel() {
+    document.getElementById('auth-view').style.display = 'none';
+    document.getElementById('admin-panel-view').style.display = 'block';
+}
+
 
 // --- ADMIN DASHBOARD LOGIC ---
 let allStudentsData = {};
 let unreadNotifications = [];
 
 function initializeAdminDashboard(teacherId) {
-    // CHANGE: Initial sort is by name
+    // Initial sort is by name
     loadAllStudents('name', 'asc'); 
     
-    // CHANGE: Add event listener for the new sorting dropdown
+    // Add event listener for the new sorting dropdown
     document.getElementById('sort-students-by').addEventListener('change', (e) => {
         const sortBy = e.target.value;
         const direction = (sortBy === 'name' || sortBy === 'className') ? 'asc' : 'desc';
@@ -80,7 +89,7 @@ function initializeAdminDashboard(teacherId) {
     listenForNotifications(teacherId);
 }
 
-// CHANGE: Overhauled function to handle dynamic sorting
+// Overhauled function to handle dynamic sorting
 function loadAllStudents(sortBy = 'name', direction = 'asc') {
     // If there's an existing listener, unsubscribe from it to prevent multiple listeners
     if (studentsUnsubscribe) {
@@ -116,15 +125,15 @@ function loadAllStudents(sortBy = 'name', direction = 'asc') {
     });
 }
 
-// CHANGE: Upgraded function to also update the className
+// Upgraded function to also update the className
 async function handleStudentUpdate(studentId) {
     const xpInput = document.querySelector(`.student-xp-input[data-id="${studentId}"]`);
     const moneyInput = document.querySelector(`.student-money-input[data-id="${studentId}"]`);
-    const classInput = document.querySelector(`.student-class-input[data-id="${studentId}"]`); // Get class input
+    const classInput = document.querySelector(`.student-class-input[data-id="${studentId}"]`);
 
     const newXp = parseInt(xpInput.value, 10);
     const newMoney = parseFloat(moneyInput.value);
-    const newClass = classInput.value.trim(); // Get class value
+    const newClass = classInput.value.trim();
 
     if (isNaN(newXp) || isNaN(newMoney)) {
         alert("Invalid input. Please enter valid numbers for XP and Money.");
@@ -136,7 +145,7 @@ async function handleStudentUpdate(studentId) {
         await updateDoc(studentDocRef, { 
             xp: newXp, 
             money: newMoney,
-            className: newClass // Add className to the update object
+            className: newClass
         });
         alert("Student updated successfully!");
     } catch (error) {
@@ -145,12 +154,7 @@ async function handleStudentUpdate(studentId) {
     }
 }
 
-
-// --- (All other functions from handleDeleteStudent to the end remain the same) ---
-// ...    } catch (error) {
-        console.error("Error updating student:", error);
-        alert("Failed to update student. See console for details.");
-    }
+// ** FIX: The duplicated code was removed from here. **
 
 async function handleDeleteStudent(studentId, studentName) {
     if (!confirm(`Are you sure you want to delete the student "${studentName}"? This will delete their data permanently.`)) {
@@ -405,7 +409,7 @@ async function markNotificationsAsRead() {
     unreadNotifications = [];
 }
 
-// CHANGE: New Function to clear history for a new semester
+// --- Semester Reset Function ---
 async function handleClearHistory() {
     const confirmation = confirm("ARE YOU SURE?\nThis will permanently delete ALL purchase history and clear ALL black marks for every student.\n\nThis action cannot be undone.");
 
@@ -421,7 +425,6 @@ async function handleClearHistory() {
         const studentsCollectionRef = collection(db, "classroom-rewards/main-class/students");
         const blackMarksBatch = writeBatch(db);
         for (const studentId in allStudentsData) {
-            // We only want to clear for actual students, not the teacher document
             if (allStudentsData[studentId].email !== TEACHER_EMAIL) {
                 const studentDocRef = doc(studentsCollectionRef, studentId);
                 blackMarksBatch.update(studentDocRef, { blackMarks: [] });
@@ -437,7 +440,6 @@ async function handleClearHistory() {
         if (historySnapshot.empty) {
             console.log("Purchase history is already empty.");
         } else {
-            // Firestore batches have a 500 operation limit. We'll handle larger histories by creating multiple batches.
             let deleteBatch = writeBatch(db);
             let operationCount = 0;
             for (const doc of historySnapshot.docs) {
@@ -445,12 +447,12 @@ async function handleClearHistory() {
                 operationCount++;
                 if (operationCount === 499) {
                     await deleteBatch.commit();
-                    deleteBatch = writeBatch(db); // Start a new batch
+                    deleteBatch = writeBatch(db);
                     operationCount = 0;
                 }
             }
             if (operationCount > 0) {
-                await deleteBatch.commit(); // Commit the final batch
+                await deleteBatch.commit();
             }
             console.log("All purchase history has been deleted.");
         }
@@ -526,5 +528,4 @@ document.getElementById('notification-bell').addEventListener('click', () => {
     }
 });
 
-// CHANGE: Add event listener for the new clear history button
 document.getElementById('clear-history-button').addEventListener('click', handleClearHistory);
