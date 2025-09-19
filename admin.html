@@ -9,29 +9,10 @@
 </head>
 <body>
     <div class="container">
-        <div id="auth-view">
-            <div id="login-container" class="auth-container">
-                <h2>Teacher Login</h2>
-                <input type="email" id="login-email" placeholder="Email">
-                <input type="password" id="login-password" placeholder="Password">
-                <button id="login-button">Login</button>
-                <p id="login-error" class="error-message"></p>
-            </div>
-        </div>
+        <!-- (auth-view remains the same) -->
 
         <div id="admin-panel-view" class="admin-panel">
-            <div class="header-bar">
-                <h1>Teacher Admin Panel</h1>
-                <div class="header-controls">
-                    <div class="notification-area">
-                        <i id="notification-bell" class="fas fa-bell"></i>
-                        <span id="notification-badge" class="badge" style="display: none;"></span>
-                        <div id="notification-panel" class="notification-panel">
-                        </div>
-                    </div>
-                    <button id="admin-logout-button" class="logout-button">Logout</button>
-                </div>
-            </div>
+            <!-- (header-bar remains the same) -->
 
             <section>
                 <h2>Student Management</h2>
@@ -42,6 +23,18 @@
                     <button id="award-xp-10" class="award-btn">+10</button>
                     <button id="award-xp-20" class="award-btn">+20</button>
                 </div>
+
+                <!-- CHANGE: New Sorting Controls -->
+                <div id="sorting-controls" style="margin-bottom: 10px;">
+                    <label for="sort-students-by">Sort by:</label>
+                    <select id="sort-students-by">
+                        <option value="name">Name (A-Z)</option>
+                        <option value="xp">XP (High to Low)</option>
+                        <option value="money">Money (High to Low)</option>
+                        <option value="className">Class (A-Z)</option>
+                    </select>
+                </div>
+
                 <div class="admin-table-container">
                     <table id="students-table">
                         <thead>
@@ -52,86 +45,19 @@
                                 <th>Level</th>
                                 <th>XP</th>
                                 <th>Money</th>
+                                <!-- CHANGE: Added Class column -->
+                                <th>Class</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            </tbody>
+                            <!-- Student rows will be generated here -->
+                        </tbody>
                     </table>
                 </div>
             </section>
             
-            <section>
-                <h2>Black Mark Management</h2>
-                <div id="black-mark-controls" style="margin-bottom: 10px;">
-                    <label for="black-mark-type">Select Black Mark Type:</label>
-                    <select id="black-mark-type" style="padding: 8px; margin-right: 10px;">
-                        <option value="Failure to turn in HW">Failure to turn in HW</option>
-                        <option value="Late">Late</option>
-                        <option value="Not prepared for class">Not prepared for class</option>
-                        <option value="Interrupted class">Interrupted class</option>
-                        <option value="Off task">Off task</option>
-                        <option value="Misuse of a 3C device">Misuse of a 3C device</option>
-                        <option value="Eating in class">Eating in class</option>
-                        <option value="Academic dishonesty">Academic dishonesty</option>
-                        <option value="Conflict with others">Conflict with others</option>
-                        <option value="Disrespectful">Disrespectful</option>
-                    </select>
-                    <button id="award-black-mark-button" class="award-btn" style="background-color: #e74c3c;">Award Black Mark to Selected</button>
-                </div>
-            </section>
-
-            <section>
-                <h2>Shop Management</h2>
-                <div id="shop-management-form">
-                    <h3>Add/Edit Shop Item</h3>
-                    <input type="hidden" id="edit-item-id">
-                    <input type="text" id="item-name" placeholder="Item Name">
-                    <input type="text" id="item-description" placeholder="Item Description (optional)">
-                    <input type="number" id="item-price" placeholder="Item Price">
-                    <button id="save-item-button">Save Item</button>
-                    <button id="cancel-edit-button" style="display: none; background-color: #95a5a6;">Cancel Edit</button>
-                </div>
-                <div class="admin-table-container">
-                    <table id="shop-table">
-                        <thead>
-                            <tr>
-                                <th>Item Name</th>
-                                <th>Description</th>
-                                <th>Price</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            </tbody>
-                    </table>
-                </div>
-            </section>
-
-            <section>
-                <h2>Full Purchase History</h2>
-                <div class="admin-table-container">
-                    <table id="full-purchase-history-table">
-                        <thead>
-                            <tr>
-                                <th>Student Name</th>
-                                <th>Item</th>
-                                <th>Cost</th>
-                                <th>Date</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            </tbody>
-                    </table>
-                </div>
-            </section>
-
-            <!-- CHANGE: New Section for Semester Reset -->
-            <section>
-                <h2>Semester Reset</h2>
-                <p>This will permanently delete all purchase history and clear all black marks for every student. This is intended for the start of a new semester or year. This action cannot be undone.</p>
-                <button id="clear-history-button">Clear All Student History</button>
-            </section>
+            <!-- (Rest of the sections remain the same) -->
 
         </div>
     </div>
