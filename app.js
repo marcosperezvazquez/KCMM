@@ -21,8 +21,8 @@ import {
     runTransaction,
     serverTimestamp,
     orderBy,
-    addDoc, // Needed for creating notifications
-    writeBatch, // Needed to mark notifications as read
+    addDoc,
+    writeBatch,
     initializeFirestore
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -33,12 +33,11 @@ const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 
 const TEACHER_EMAIL = "marcosperez@kcis.com.tw";
 let studentDataUnsubscribe = null;
-// CHANGE: Added for notifications
 let notificationsUnsubscribe = null;
 let unreadNotifications = [];
-let teacherId = null; // We'll discover and store the teacher's ID
+let teacherId = null; 
 
-// --- CHANGE: Leveling System Configuration (100xp intervals) ---
+// --- Leveling System Configuration (100xp intervals) ---
 const levelThresholds = Array.from({ length: 10 }, (_, i) => ({
     level: i + 1,
     xp: i * 100
@@ -55,7 +54,7 @@ function calculateLevel(xp) {
 onAuthStateChanged(auth, user => {
     if (user) {
         if (user.email === TEACHER_EMAIL) {
-            teacherId = user.uid; // Store teacher's ID if they happen to log in here
+            teacherId = user.uid;
             signOut(auth);
             return;
         }
@@ -64,7 +63,7 @@ onAuthStateChanged(auth, user => {
     } else {
         showAuthView();
         if (studentDataUnsubscribe) studentDataUnsubscribe();
-        if (notificationsUnsubscribe) notificationsUnsubscribe(); // Cleanup
+        if (notificationsUnsubscribe) notificationsUnsubscribe();
     }
 });
 
@@ -97,7 +96,7 @@ function initializeStudentDashboard(userId) {
     });
     loadShop();
     loadClassRanking(userId, 'xp');
-    listenForNotifications(userId); // CHANGE: Listen for student's notifications
+    listenForNotifications(userId);
     const rankingSelect = document.getElementById('ranking-criteria');
     if (rankingSelect) {
         rankingSelect.addEventListener('change', (e) => {
@@ -169,12 +168,8 @@ async function handlePurchase(itemId, itemName, itemPrice) {
     const user = auth.currentUser;
     if (!user) return;
     
-    // Find teacher's UID for notifications. In a real app, this might be stored in a config doc.
-    // For now, we assume there's only one teacher, and their email is known.
-    // A robust way without exposing all users is to use a Cloud Function trigger.
-    // Here we'll just hardcode the teacher's UID since we can't query users by email on the client.
-    // NOTE: Replace "TEACHER_USER_ID" with the actual UID from your Firebase Authentication console.
-    const teacherIdForNotification = "YBrD9GULHMcBjDfZkjuRzdQ2gbz1"; // IMPORTANT: Replace this placeholder!
+    // NOTE: Replace "YOUR_NEW_TEACHER_UID_HERE" with the actual UID from your Firebase Authentication console for the teacher.
+    const teacherIdForNotification = "YOUR_NEW_TEACHER_UID_HERE"; 
 
     const price = parseFloat(itemPrice);
     const studentDocRef = doc(db, "classroom-rewards/main-class/students", user.uid);
@@ -199,11 +194,10 @@ async function handlePurchase(itemId, itemName, itemPrice) {
                 timestamp: serverTimestamp()
             });
 
-            // CHANGE: Create a notification for the teacher in the same transaction
             const notificationsCollectionRef = collection(db, "notifications");
             const newNotificationRef = doc(notificationsCollectionRef);
             transaction.set(newNotificationRef, {
-                recipientId: teacherIdForNotification, // Send to the teacher
+                recipientId: teacherIdForNotification,
                 message: `${studentDoc.data().name} purchased "${itemName}".`,
                 timestamp: serverTimestamp(),
                 read: false,
@@ -240,7 +234,7 @@ function loadClassRanking(userId, criteria = 'xp') {
     });
 }
 
-// CHANGE: New Notification Functions
+// --- Notification Functions ---
 function listenForNotifications(studentId) {
     const notificationsQuery = query(
         collection(db, "notifications"),
@@ -326,7 +320,14 @@ document.getElementById('register-button').addEventListener('click', async () =>
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
         const studentDocRef = doc(db, "classroom-rewards/main-class/students", user.uid);
-        await setDoc(studentDocRef, { name: name, email: email, xp: 0, money: 0, blackMarks: [] });
+        await setDoc(studentDocRef, { 
+            name: name, 
+            email: email, 
+            xp: 0, 
+            money: 0, 
+            blackMarks: [],
+            className: ""
+        });
     } catch (error) {
         console.error("Registration Error:", error);
         errorElem.textContent = error.message;
@@ -341,7 +342,6 @@ document.getElementById('dashboard-view').addEventListener('click', (e) => {
         handlePurchase(button.dataset.id, button.dataset.name, button.dataset.price);
     }
 });
-// CHANGE: New Notification Event Listener
 document.getElementById('notification-bell').addEventListener('click', () => {
     const panel = document.getElementById('notification-panel');
     const isVisible = panel.style.display === 'block';
@@ -375,34 +375,3 @@ window.onclick = function(event) {
         modal.style.display = "none";
     }
 }
---- START OF FILE app.js ---
-
-// (Keep all code from the top of the file)
-// ...
-
-document.getElementById('register-button').addEventListener('click', async () => {
-    const name = document.getElementById('register-name').value;
-    const email = document.getElementById('register-email').value;
-    const password = document.getElementById('register-password').value;
-    const errorElem = document.getElementById('register-error');
-    errorElem.textContent = '';
-    if (!name) { errorElem.textContent = "Please enter your name."; return; }
-    try {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
-        const studentDocRef = doc(db, "classroom-rewards/main-class/students", user.uid);
-        
-        // CHANGE: Initialize className for new students
-        await setDoc(studentDocRef, { 
-            name: name, 
-            email: email, 
-            xp: 0, 
-            money: 0, 
-            blackMarks: [],
-            className: "" // Default to an empty string
-        });
-    } catch (error) {
-        console.error("Registration Error:", error);
-        errorElem.textContent = error.message;
-    }
-});
