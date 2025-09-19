@@ -1,3 +1,5 @@
+--- START OF FILE admin.html ---
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,10 +11,31 @@
 </head>
 <body>
     <div class="container">
-        <!-- (auth-view remains the same) -->
+        <!-- CHANGE: Restored the missing auth-view login section -->
+        <div id="auth-view">
+            <div id="login-container" class="auth-container">
+                <h2>Teacher Login</h2>
+                <input type="email" id="login-email" placeholder="Email">
+                <input type="password" id="login-password" placeholder="Password">
+                <button id="login-button">Login</button>
+                <p id="login-error" class="error-message"></p>
+            </div>
+        </div>
 
         <div id="admin-panel-view" class="admin-panel">
-            <!-- (header-bar remains the same) -->
+            <!-- CHANGE: Restored the missing header-bar section -->
+            <div class="header-bar">
+                <h1>Teacher Admin Panel</h1>
+                <div class="header-controls">
+                    <div class="notification-area">
+                        <i id="notification-bell" class="fas fa-bell"></i>
+                        <span id="notification-badge" class="badge" style="display: none;"></span>
+                        <div id="notification-panel" class="notification-panel">
+                        </div>
+                    </div>
+                    <button id="admin-logout-button" class="logout-button">Logout</button>
+                </div>
+            </div>
 
             <section>
                 <h2>Student Management</h2>
@@ -24,7 +47,6 @@
                     <button id="award-xp-20" class="award-btn">+20</button>
                 </div>
 
-                <!-- CHANGE: New Sorting Controls -->
                 <div id="sorting-controls" style="margin-bottom: 10px;">
                     <label for="sort-students-by">Sort by:</label>
                     <select id="sort-students-by">
@@ -45,7 +67,6 @@
                                 <th>Level</th>
                                 <th>XP</th>
                                 <th>Money</th>
-                                <!-- CHANGE: Added Class column -->
                                 <th>Class</th>
                                 <th>Actions</th>
                             </tr>
@@ -122,7 +143,6 @@
                 </div>
             </section>
 
-            <!-- CHANGE: New Section for Semester Reset -->
             <section>
                 <h2>Semester Reset</h2>
                 <p>This will permanently delete all purchase history and clear all black marks for every student. This is intended for the start of a new semester or year. This action cannot be undone.</p>
