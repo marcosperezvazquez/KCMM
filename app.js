@@ -35,7 +35,7 @@ const TEACHER_EMAIL = "marcosperez@kcis.com.tw";
 let studentDataUnsubscribe = null;
 let notificationsUnsubscribe = null;
 let unreadNotifications = [];
-let teacherId = null; 
+let teacherId = null;
 
 // --- Leveling System Configuration (100xp intervals) ---
 const levelThresholds = Array.from({ length: 10 }, (_, i) => ({
@@ -168,7 +168,8 @@ async function handlePurchase(itemId, itemName, itemPrice) {
     const user = auth.currentUser;
     if (!user) return;
     
-    // NOTE: Replace "YOUR_NEW_TEACHER_UID_HERE" with the actual UID from your Firebase Authentication console for the teacher.
+    // FIX: Replace this placeholder string with the actual UID of your teacher account.
+    // Find this in your Firebase Console -> Authentication -> Users tab.
     const teacherIdForNotification = "hy6SKvz5WzUKK2NBjQSFnOzeOny2"; 
 
     const price = parseFloat(itemPrice);
