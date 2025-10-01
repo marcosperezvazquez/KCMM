@@ -169,7 +169,7 @@ async function handlePurchase(itemId, itemName, itemPrice) {
     if (!user) return;
     
     // NOTE: Replace "YOUR_NEW_TEACHER_UID_HERE" with the actual UID from your Firebase Authentication console for the teacher.
-    const teacherIdForNotification = "YOUR_NEW_TEACHER_UID_HERE"; 
+    const teacherIdForNotification = "hy6SKvz5WzUKK2NBjQSFnOzeOny2"; 
 
     const price = parseFloat(itemPrice);
     const studentDocRef = doc(db, "classroom-rewards/main-class/students", user.uid);
