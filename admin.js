@@ -44,7 +44,8 @@ function calculateLevel(xp) {
 
 // --- AUTHENTICATION LOGIC ---
 let notificationsUnsubscribe = null;
-let studentsUnsubscribe = null; // To manage the student listener
+let studentsUnsubscribe = null;
+let classBlackMarksUnsubscribe = null;
 
 onAuthStateChanged(auth, user => {
     if (user && user.email === TEACHER_EMAIL) {
@@ -53,7 +54,8 @@ onAuthStateChanged(auth, user => {
     } else {
         showAuthView();
         if (notificationsUnsubscribe) notificationsUnsubscribe();
-        if (studentsUnsubscribe) studentsUnsubscribe(); // Unsubscribe on logout
+        if (studentsUnsubscribe) studentsUnsubscribe();
+        if (classBlackMarksUnsubscribe) classBlackMarksUnsubscribe();
     }
 });
 
@@ -86,6 +88,7 @@ function initializeAdminDashboard(teacherId) {
 
     loadAdminShopManagement();
     loadFullPurchaseHistory();
+    loadClassBlackMarks();
     listenForNotifications(teacherId);
 }
 
@@ -168,6 +171,51 @@ async function handleDeleteStudent(studentId, studentName) {
         console.error("Error deleting student data:", error);
         alert("Failed to delete student data. See console for details.");
     }
+}
+
+function loadClassBlackMarks() {
+    if (classBlackMarksUnsubscribe) classBlackMarksUnsubscribe();
+
+    const studentsCollectionRef = collection(db, "classroom-rewards/main-class/students");
+    const tableBody = document.querySelector("#class-black-marks-table tbody");
+    const table = document.getElementById('class-black-marks-table');
+    const noMarksMsg = document.getElementById('no-black-marks-admin-message');
+
+    classBlackMarksUnsubscribe = onSnapshot(query(studentsCollectionRef, orderBy("name")), (snapshot) => {
+        const allMarks = [];
+        snapshot.forEach(docSnap => {
+            const student = docSnap.data();
+            if (student.email === TEACHER_EMAIL) return;
+            const marks = student.blackMarks || [];
+            marks.forEach(mark => {
+                allMarks.push({
+                    name: student.name,
+                    className: student.className || '—',
+                    type: mark.type,
+                    timestamp: mark.timestamp
+                });
+            });
+        });
+
+        allMarks.sort((a, b) => {
+            if (!a.timestamp || !b.timestamp) return 0;
+            return b.timestamp.toMillis() - a.timestamp.toMillis();
+        });
+
+        tableBody.innerHTML = '';
+        if (allMarks.length === 0) {
+            table.style.display = 'none';
+            noMarksMsg.style.display = 'block';
+            return;
+        }
+        noMarksMsg.style.display = 'none';
+        table.style.display = 'table';
+        allMarks.forEach(mark => {
+            const row = tableBody.insertRow();
+            const date = mark.timestamp ? mark.timestamp.toDate().toLocaleString() : 'N/A';
+            row.innerHTML = `<td>${mark.name}</td><td>${mark.className}</td><td>${mark.type}</td><td>${date}</td>`;
+        });
+    });
 }
 
 function loadAdminShopManagement() {
