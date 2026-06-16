@@ -33,6 +33,7 @@ const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 
 const TEACHER_EMAIL = "marcosperez@kcis.com.tw";
 let studentDataUnsubscribe = null;
+let blackMarksUnsubscribe = null;
 let notificationsUnsubscribe = null;
 let unreadNotifications = [];
 let teacherId = null;
@@ -63,6 +64,7 @@ onAuthStateChanged(auth, user => {
     } else {
         showAuthView();
         if (studentDataUnsubscribe) studentDataUnsubscribe();
+        if (blackMarksUnsubscribe) blackMarksUnsubscribe();
         if (notificationsUnsubscribe) notificationsUnsubscribe();
     }
 });
@@ -88,12 +90,12 @@ function initializeStudentDashboard(userId) {
             document.getElementById('student-xp').textContent = data.xp;
             document.getElementById('student-money').textContent = data.money.toFixed(2);
             document.getElementById('student-level').textContent = calculateLevel(data.xp);
-            displayBlackMarks(data.blackMarks);
         } else {
             console.log("Student document does not exist.");
             signOut(auth);
         }
     });
+    listenForBlackMarks(userId);
     loadShop();
     loadClassRanking(userId, 'xp');
     listenForNotifications(userId);
@@ -105,31 +107,31 @@ function initializeStudentDashboard(userId) {
     }
 }
 
-function displayBlackMarks(blackMarks) {
-    const blackMarksTableBody = document.querySelector("#black-marks-table tbody");
-    const noBlackMarksMessage = document.getElementById('no-black-marks-message');
-    const blackMarksTable = document.getElementById('black-marks-table');
+function listenForBlackMarks(userId) {
+    const q = query(
+        collection(db, "classroom-rewards/main-class/black_mark_history"),
+        where("studentId", "==", userId),
+        orderBy("timestamp", "desc")
+    );
+    blackMarksUnsubscribe = onSnapshot(q, (snapshot) => {
+        const blackMarksTableBody = document.querySelector("#black-marks-table tbody");
+        const noBlackMarksMessage = document.getElementById('no-black-marks-message');
+        const blackMarksTable = document.getElementById('black-marks-table');
 
-    blackMarksTableBody.innerHTML = '';
-
-    if (!blackMarks || blackMarks.length === 0) {
-        noBlackMarksMessage.style.display = 'block';
-        blackMarksTable.style.display = 'none';
-        return;
-    }
-
-    noBlackMarksMessage.style.display = 'none';
-    blackMarksTable.style.display = 'table';
-    
-    blackMarks.sort((a, b) => {
-        if (!a.timestamp || !b.timestamp) return 0;
-        return b.timestamp.toMillis() - a.timestamp.toMillis();
-    });
-
-    blackMarks.forEach(mark => {
-        const row = blackMarksTableBody.insertRow();
-        const date = mark.timestamp ? mark.timestamp.toDate().toLocaleString() : 'N/A';
-        row.innerHTML = `<td>${mark.type}</td><td>${date}</td>`;
+        blackMarksTableBody.innerHTML = '';
+        if (snapshot.empty) {
+            noBlackMarksMessage.style.display = 'block';
+            blackMarksTable.style.display = 'none';
+            return;
+        }
+        noBlackMarksMessage.style.display = 'none';
+        blackMarksTable.style.display = 'table';
+        snapshot.forEach(docSnap => {
+            const mark = docSnap.data();
+            const date = mark.timestamp ? mark.timestamp.toDate().toLocaleString() : 'N/A';
+            const row = blackMarksTableBody.insertRow();
+            row.innerHTML = `<td>${mark.type}</td><td>${date}</td>`;
+        });
     });
 }
 

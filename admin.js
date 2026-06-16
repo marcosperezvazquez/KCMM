@@ -21,7 +21,6 @@ import {
     serverTimestamp,
     orderBy,
     where,
-    arrayUnion,
     writeBatch,
     getDocs,
     initializeFirestore
@@ -176,44 +175,31 @@ async function handleDeleteStudent(studentId, studentName) {
 function loadClassBlackMarks() {
     if (classBlackMarksUnsubscribe) classBlackMarksUnsubscribe();
 
-    const studentsCollectionRef = collection(db, "classroom-rewards/main-class/students");
     const tableBody = document.querySelector("#class-black-marks-table tbody");
     const table = document.getElementById('class-black-marks-table');
     const noMarksMsg = document.getElementById('no-black-marks-admin-message');
 
-    classBlackMarksUnsubscribe = onSnapshot(query(studentsCollectionRef, orderBy("name")), (snapshot) => {
-        const allMarks = [];
-        snapshot.forEach(docSnap => {
-            const student = docSnap.data();
-            if (student.email === TEACHER_EMAIL) return;
-            const marks = student.blackMarks || [];
-            marks.forEach(mark => {
-                allMarks.push({
-                    name: student.name,
-                    className: student.className || '—',
-                    type: mark.type,
-                    timestamp: mark.timestamp
-                });
-            });
-        });
+    const q = query(
+        collection(db, "classroom-rewards/main-class/black_mark_history"),
+        orderBy("timestamp", "desc")
+    );
 
-        allMarks.sort((a, b) => {
-            if (!a.timestamp || !b.timestamp) return 0;
-            return b.timestamp.toMillis() - a.timestamp.toMillis();
-        });
-
+    classBlackMarksUnsubscribe = onSnapshot(q, (snapshot) => {
         tableBody.innerHTML = '';
-        if (allMarks.length === 0) {
+        if (snapshot.empty) {
             table.style.display = 'none';
             noMarksMsg.style.display = 'block';
             return;
         }
         noMarksMsg.style.display = 'none';
         table.style.display = 'table';
-        allMarks.forEach(mark => {
-            const row = tableBody.insertRow();
+        snapshot.forEach(docSnap => {
+            const mark = docSnap.data();
+            const student = Object.values(allStudentsData).find(s => s.name === mark.studentName);
+            const className = student?.className || '—';
             const date = mark.timestamp ? mark.timestamp.toDate().toLocaleString() : 'N/A';
-            row.innerHTML = `<td>${mark.name}</td><td>${mark.className}</td><td>${mark.type}</td><td>${date}</td>`;
+            const row = tableBody.insertRow();
+            row.innerHTML = `<td>${mark.studentName}</td><td>${className}</td><td>${mark.type}</td><td>${date}</td>`;
         });
     });
 }
@@ -363,6 +349,7 @@ async function awardBlackMarkToSelected() {
 
     let awardedCount = 0;
     const batch = writeBatch(db);
+    const blackMarkHistoryRef = collection(db, "classroom-rewards/main-class/black_mark_history");
     const notificationsCollectionRef = collection(db, "notifications");
 
     for (const checkbox of checkboxes) {
@@ -370,13 +357,13 @@ async function awardBlackMarkToSelected() {
         const currentData = allStudentsData[studentId];
         if (!currentData) continue;
 
-        const markData = {
+        const newMarkRef = doc(blackMarkHistoryRef);
+        batch.set(newMarkRef, {
+            studentId: studentId,
+            studentName: currentData.name,
             type: blackMarkType,
-            timestamp: new Date()
-        };
-
-        const studentDocRef = doc(db, "classroom-rewards/main-class/students", studentId);
-        batch.update(studentDocRef, { blackMarks: arrayUnion(markData) });
+            timestamp: serverTimestamp()
+        });
 
         const notificationDocRef = doc(notificationsCollectionRef);
         batch.set(notificationDocRef, {
@@ -386,7 +373,7 @@ async function awardBlackMarkToSelected() {
             read: false,
             type: 'black_mark'
         });
-        
+
         awardedCount++;
     }
 
@@ -469,17 +456,24 @@ async function handleClearHistory() {
     alert("Starting the clearing process. This may take a moment...");
 
     try {
-        // --- 1. Clear all black marks from students ---
-        const studentsCollectionRef = collection(db, "classroom-rewards/main-class/students");
-        const blackMarksBatch = writeBatch(db);
-        for (const studentId in allStudentsData) {
-            if (allStudentsData[studentId].email !== TEACHER_EMAIL) {
-                const studentDocRef = doc(studentsCollectionRef, studentId);
-                blackMarksBatch.update(studentDocRef, { blackMarks: [] });
+        // --- 1. Clear all black marks ---
+        const blackMarkHistoryRef = collection(db, "classroom-rewards/main-class/black_mark_history");
+        const blackMarkSnapshot = await getDocs(blackMarkHistoryRef);
+        if (!blackMarkSnapshot.empty) {
+            let blackMarkBatch = writeBatch(db);
+            let opCount = 0;
+            for (const d of blackMarkSnapshot.docs) {
+                blackMarkBatch.delete(d.ref);
+                opCount++;
+                if (opCount === 499) {
+                    await blackMarkBatch.commit();
+                    blackMarkBatch = writeBatch(db);
+                    opCount = 0;
+                }
             }
+            if (opCount > 0) await blackMarkBatch.commit();
         }
-        await blackMarksBatch.commit();
-        console.log("All student black marks have been cleared.");
+        console.log("All black mark history has been cleared.");
 
         // --- 2. Delete all documents from purchase_history ---
         const historyCollectionRef = collection(db, "classroom-rewards/main-class/purchase_history");
