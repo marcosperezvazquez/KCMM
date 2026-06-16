@@ -33,6 +33,12 @@ const db = initializeFirestore(app, { experimentalForceLongPolling: true });
 
 const TEACHER_EMAIL = "marcosperez@kcis.com.tw";
 
+const BLACK_MARK_TYPES = [
+    "Failure to turn in HW", "Late", "Not prepared for class",
+    "Interrupted class", "Off task", "Misuse of a 3C device",
+    "Eating in class", "Academic dishonesty", "Conflict with others", "Disrespectful"
+];
+
 // --- (calculateLevel function remains the same) ---
 function calculateLevel(xp) {
     if (xp < 0) return 1;
@@ -72,6 +78,7 @@ function showAdminPanel() {
 
 // --- ADMIN DASHBOARD LOGIC ---
 let allStudentsData = {};
+let blackMarksByStudent = {};
 let unreadNotifications = [];
 
 function initializeAdminDashboard(teacherId) {
@@ -124,6 +131,7 @@ function loadAllStudents(sortBy = 'name', direction = 'asc') {
                 </td>
             `;
         });
+        populateBlackMarkDropdown();
     });
 }
 
@@ -175,33 +183,65 @@ async function handleDeleteStudent(studentId, studentName) {
 function loadClassBlackMarks() {
     if (classBlackMarksUnsubscribe) classBlackMarksUnsubscribe();
 
-    const tableBody = document.querySelector("#class-black-marks-table tbody");
-    const table = document.getElementById('class-black-marks-table');
-    const noMarksMsg = document.getElementById('no-black-marks-admin-message');
-
-    const q = query(
-        collection(db, "classroom-rewards/main-class/black_mark_history"),
-        orderBy("timestamp", "desc")
-    );
+    const q = query(collection(db, "classroom-rewards/main-class/black_mark_history"));
 
     classBlackMarksUnsubscribe = onSnapshot(q, (snapshot) => {
-        tableBody.innerHTML = '';
-        if (snapshot.empty) {
-            table.style.display = 'none';
-            noMarksMsg.style.display = 'block';
-            return;
-        }
-        noMarksMsg.style.display = 'none';
-        table.style.display = 'table';
+        blackMarksByStudent = {};
         snapshot.forEach(docSnap => {
             const mark = docSnap.data();
-            const student = Object.values(allStudentsData).find(s => s.name === mark.studentName);
-            const className = student?.className || '—';
-            const date = mark.timestamp ? mark.timestamp.toDate().toLocaleString() : 'N/A';
-            const row = tableBody.insertRow();
-            row.innerHTML = `<td>${mark.studentName}</td><td>${className}</td><td>${mark.type}</td><td>${date}</td>`;
+            if (!blackMarksByStudent[mark.studentId]) {
+                blackMarksByStudent[mark.studentId] = {};
+            }
+            blackMarksByStudent[mark.studentId][mark.type] =
+                (blackMarksByStudent[mark.studentId][mark.type] || 0) + 1;
         });
+        const selectedId = document.getElementById('black-mark-student-select').value;
+        if (selectedId) renderBlackMarkTracker(selectedId);
     });
+}
+
+function populateBlackMarkDropdown() {
+    const select = document.getElementById('black-mark-student-select');
+    const currentValue = select.value;
+    select.innerHTML = '<option value="">-- Select a student --</option>';
+    Object.entries(allStudentsData)
+        .filter(([, s]) => s.email !== TEACHER_EMAIL)
+        .sort(([, a], [, b]) => a.name.localeCompare(b.name))
+        .forEach(([id, student]) => {
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = student.name;
+            select.appendChild(option);
+        });
+    if (currentValue) select.value = currentValue;
+}
+
+function renderBlackMarkTracker(studentId) {
+    const container = document.getElementById('black-mark-tracker-container');
+    const noMarksMsg = document.getElementById('no-black-marks-admin-message');
+    const tableBody = document.querySelector('#black-mark-tracker-table tbody');
+
+    const studentMarks = blackMarksByStudent[studentId] || {};
+    tableBody.innerHTML = '';
+
+    BLACK_MARK_TYPES.forEach(type => {
+        const count = studentMarks[type] || 0;
+        const row = tableBody.insertRow();
+        const markColors = ['#f0c040', '#e67e22', '#e74c3c'];
+        let cells = `<td>${type}</td>`;
+        for (let i = 1; i <= 3; i++) {
+            if (i <= count) {
+                cells += `<td style="background-color:${markColors[i-1]};text-align:center;font-weight:bold;font-size:1.1em;">✕</td>`;
+            } else {
+                cells += `<td style="text-align:center;color:#ccc;">—</td>`;
+            }
+        }
+        row.innerHTML = cells;
+    });
+
+    container.style.display = 'block';
+    const hasAnyMark = Object.values(studentMarks).some(c => c > 0);
+    noMarksMsg.style.display = hasAnyMark ? 'none' : 'block';
 }
 
 function loadAdminShopManagement() {
@@ -571,3 +611,15 @@ document.getElementById('notification-bell').addEventListener('click', () => {
 });
 
 document.getElementById('clear-history-button').addEventListener('click', handleClearHistory);
+
+document.getElementById('black-mark-student-select').addEventListener('change', (e) => {
+    const studentId = e.target.value;
+    const container = document.getElementById('black-mark-tracker-container');
+    const noMarksMsg = document.getElementById('no-black-marks-admin-message');
+    if (!studentId) {
+        container.style.display = 'none';
+        noMarksMsg.style.display = 'none';
+        return;
+    }
+    renderBlackMarkTracker(studentId);
+});
