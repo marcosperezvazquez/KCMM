@@ -98,15 +98,21 @@
 
             <section>
                 <h2>Class Black Mark Records</h2>
-                <p id="no-black-marks-admin-message" style="color: #7f8c8d;">No black marks have been recorded yet.</p>
-                <div class="admin-table-container">
-                    <table id="class-black-marks-table" style="display: none;">
+                <div style="margin-bottom: 12px;">
+                    <label for="black-mark-student-select">Select Student:</label>
+                    <select id="black-mark-student-select" style="padding: 8px; margin-left: 8px; min-width: 200px;">
+                        <option value="">-- Select a student --</option>
+                    </select>
+                </div>
+                <p id="no-black-marks-admin-message" style="color: #7f8c8d; display: none;">No black marks recorded for this student.</p>
+                <div id="black-mark-tracker-container" class="admin-table-container" style="display: none;">
+                    <table id="black-mark-tracker-table">
                         <thead>
                             <tr>
-                                <th>Student Name</th>
-                                <th>Class</th>
-                                <th>Black Mark Type</th>
-                                <th>Date / Time</th>
+                                <th style="text-align: left;">Black Mark Type</th>
+                                <th style="width: 70px; text-align: center;">1st</th>
+                                <th style="width: 70px; text-align: center;">2nd</th>
+                                <th style="width: 70px; text-align: center;">3rd</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
