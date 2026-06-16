@@ -95,6 +95,7 @@ function initializeAdminDashboard(teacherId) {
     loadAdminShopManagement();
     loadFullPurchaseHistory();
     loadClassBlackMarks();
+    listenForBlackMarkDropdown();
     listenForNotifications(teacherId);
 }
 
@@ -131,7 +132,6 @@ function loadAllStudents(sortBy = 'name', direction = 'asc') {
                 </td>
             `;
         });
-        populateBlackMarkDropdown();
     });
 }
 
@@ -200,20 +200,22 @@ function loadClassBlackMarks() {
     });
 }
 
-function populateBlackMarkDropdown() {
+function listenForBlackMarkDropdown() {
     const select = document.getElementById('black-mark-student-select');
-    const currentValue = select.value;
-    select.innerHTML = '<option value="">-- Select a student --</option>';
-    Object.entries(allStudentsData)
-        .filter(([, s]) => s.email !== TEACHER_EMAIL)
-        .sort(([, a], [, b]) => a.name.localeCompare(b.name))
-        .forEach(([id, student]) => {
+    const studentsRef = collection(db, "classroom-rewards/main-class/students");
+    onSnapshot(query(studentsRef, orderBy("name")), (snapshot) => {
+        const currentValue = select.value;
+        select.innerHTML = '<option value="">-- Select a student --</option>';
+        snapshot.forEach(docSnap => {
+            const student = docSnap.data();
+            if (student.email === TEACHER_EMAIL) return;
             const option = document.createElement('option');
-            option.value = id;
+            option.value = docSnap.id;
             option.textContent = student.name;
             select.appendChild(option);
         });
-    if (currentValue) select.value = currentValue;
+        if (currentValue) select.value = currentValue;
+    });
 }
 
 function renderBlackMarkTracker(studentId) {
